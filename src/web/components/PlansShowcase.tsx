@@ -154,7 +154,7 @@ export function PlanCards({ catalog, cur, currentPlanId, onChoose, onCardPay, co
                     <span className="muted text-sm">/ {PRICE_PERIODS[p.price_period] ?? PRICE_PERIODS.month}</span>
                     {catalog.price_note && <span className="muted w-full text-[11px]">({catalog.price_note})</span>}
                     {old !== null && price !== null && old > price && (
-                      <span className="w-full text-xs"><s className="muted text-sm">{formatAmount(old, cur)}</s> <b className="text-emerald-600">خصم {pct > 0 ? pct : Math.round((1 - price / old) * 100)}%</b></span>
+                      <span className="w-full text-xs"><s className="muted text-sm">{formatAmount(old, cur)}</s></span>
                     )}
                   </div>
                 ) : (

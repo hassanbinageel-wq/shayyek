@@ -72,7 +72,7 @@ import { recoverMissedComments } from "./services/recover";
 import { duplicateIgFlags, freePlanRefusal, networkRefusal, recordFreeStart } from "./services/freeplan";
 import { isDisposable } from "./lib/disposable";
 import { auditCampaignComments } from "./services/audit";
-import { LIMITS, hasPublishScope, isImage, isVideo, optionalScopes, publishScopeMode, removeFiles, validatePost, verifyMediaUrl, wantsPublishScope, withSchedulingNotice, type PostKind } from "./services/publish";
+import { LIMITS, hasPublishScope, isImage, isVideo, optionalScopes, removeFiles, validatePost, verifyMediaUrl, wantsPublishScope, withSchedulingNotice, type PostKind } from "./services/publish";
 import { captureInsights, insightsAccount, insightsScopeMode, insightsSummary, mediaInsightsSeries, wantsInsightsScope } from "./services/insights";
 import { analyticsByCampaign, analyticsByPost, analyticsDevices, analyticsFollow, analyticsHeatmap, analyticsOverview, analyticsRetention, osFamily, tzOffsetMinutes, type AnalyticsFilter, type EventType, type HeatKind } from "./services/analytics";
 import { deleteDraws, DrawFailure, EXCLUDE_LABELS, fetchBatch, loadDraw, pickNext, preview, replaceWinner, runDraw, settingsOf, winnersOf } from "./services/draws";
@@ -2759,16 +2759,7 @@ export function createApp() {
       storage: !!c.env.MEDIA,
       limits: LIMITS,
       tz_offset_min: tzOffsetMinutes((await getSetting<string>(c.env.DB, T(c), "timezone", "Asia/Riyadh")) || "Asia/Riyadh"),
-      scope_mode: c.get("session").is_owner ? await publishScopeMode(c.env.DB) : undefined,
     });
-  });
-  api.put("/schedule/scope", async (c) => {
-    if (!c.get("session").is_owner) return apiError(c, 403, "owner_only", "هذا الإعداد متاح لإدارة الخدمة فقط");
-    const p = await parseBody(c, z.object({ mode: z.enum(["off", "owner", "all"]) }));
-    if (!p.ok) return p.res;
-    await setSetting(c.env.DB, OWNER_TENANT, "publish_scope", p.data.mode);
-    await audit(c.env.DB, T(c), c.get("session").username, "publish_scope.updated", undefined, p.data);
-    return c.json({ ok: true });
   });
   api.get("/schedule", async (c) => {
     const blocked = await planBlock(c, "scheduling");

@@ -1,6 +1,6 @@
 import type { Env } from "../env";
 import type { AccountRow } from "../engine/context";
-import { all, audit, first, getSetting, OWNER_TENANT, run } from "../lib/db";
+import { all, audit, first, OWNER_TENANT, run } from "../lib/db";
 import { hex, timingSafeEqual } from "../lib/crypto";
 import { INSIGHTS_SCOPE, PUBLISH_SCOPE, type HttpMetaClient } from "../meta/client";
 import type { MetaError, MetaResult } from "../meta/types";
@@ -8,7 +8,7 @@ import { getAccessToken, markNeedsReauth, metaClient } from "./account";
 import { cacheMediaStmt } from "./media";
 import { getEntitlement } from "./plans";
 import { notify, sendOwnerMessage } from "./notify";
-import { hasInsightsScope, wantsInsightsScope, type ScopeMode } from "./insights";
+import { hasInsightsScope, wantsInsightsScope } from "./insights";
 
 /**
  * Scheduled publishing through the official Content Publishing API (permission instagram_business_content_publish).
@@ -79,19 +79,12 @@ export const LIMITS = {
 
 // ---- who is asked for the permission (same pattern as insights) -------------------------------------------------
 
-export async function publishScopeMode(db: D1Database): Promise<ScopeMode> {
-  const m = await getSetting<string>(db, OWNER_TENANT, "publish_scope", "off");
-  return m === "owner" || m === "all" ? m : "off";
-}
 /**
- * "all" = automatic by plan: every customer whose plan includes scheduling is asked for the permission when
- * connecting (the owner always). "owner" = the owner's account only (before Meta approves the permission).
+ * Automatic by plan, like every other feature: the owner, and every customer whose active plan includes
+ * scheduling, is asked for the publishing permission when connecting.
  */
 export async function wantsPublishScope(db: D1Database, tenantId: number): Promise<boolean> {
-  const mode = await publishScopeMode(db);
-  if (mode === "off") return false;
   if (tenantId === OWNER_TENANT) return true;
-  if (mode !== "all") return false;
   const e = await getEntitlement(db, tenantId);
   return e.owner || (e.active && !!e.limits.scheduling);
 }

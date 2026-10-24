@@ -50,7 +50,6 @@ export function SchedulePage() {
     <div className="space-y-5">
       <PageHeader title="الجدولة" subtitle="جدولة نشر المنشورات والريلز والستوري على حسابك، وجدولة الحملات." />
       {!meta ? <Spinner /> : ready ? <Planner meta={meta} /> : <PublishSetup meta={meta} onChanged={reloadMeta} />}
-      {ready && meta.scope_mode !== undefined && <Card title="صلاحية النشر للعملاء"><ScopeControl mode={meta.scope_mode} onChanged={reloadMeta} /></Card>}
       <ScheduledCampaigns />
     </div>
   );
@@ -79,36 +78,8 @@ function PublishSetup({ meta, onChanged }: { meta: any; onChanged: () => void })
           <li>الصور تتحول تلقائيًا لصيغة JPEG (الصيغة الوحيدة اللي تقبلها Meta). الفيديو MP4 أو MOV: الريل حتى 300 ميجا، والستوري والمتعدد حتى 100 ميجا.</li>
           <li>الملفات تنحفظ بشكل خاص وتنحذف تلقائيًا بعد النشر.</li>
         </ul>
-        {meta.scope_mode !== undefined && <ScopeControl mode={meta.scope_mode} onChanged={onChanged} />}
       </div>
     </Card>
-  );
-}
-
-function ScopeControl({ mode, onChanged }: { mode: "off" | "owner" | "all"; onChanged: () => void }) {
-  const set = async (m: "off" | "owner" | "all") => {
-    if (m !== "off" && !(await askConfirm({
-      title: "طلب صلاحية النشر عند الربط؟",
-      message: "لازم تكون صلاحية instagram_business_content_publish مضافة لتطبيقك في لوحة Meta، وإلا بيفشل الربط.\n\nقبل موافقة Meta في مراجعة التطبيق، تشتغل فقط للحسابات اللي لها دور في التطبيق (مثل حسابك). لا تختار «تلقائي لمشتركي الباقة» إذا كان التطبيق Live والصلاحية ما انقبلت بعد.\n\nبعد التفعيل: صفحة الربط ← «إعادة الاتصال» ← فعّل كل الصلاحيات ← السماح.",
-      confirmLabel: "فعّل",
-    }))) return;
-    try {
-      await api("/api/schedule/scope", { method: "PUT", body: { mode: m } });
-      toast("تم الحفظ");
-      onChanged();
-    } catch (e: any) {
-      toast(e.message, "bad");
-    }
-  };
-  const opts: Array<[typeof mode, string]> = [["off", "إيقاف"], ["owner", "حسابي فقط"], ["all", "تلقائي لمشتركي الباقة"]];
-  return (
-    <div className="rounded-2xl border border-dashed border-[var(--border)] p-3">
-      <div className="mb-2 font-semibold">لإدارة الخدمة: طلب صلاحية النشر عند ربط الحساب</div>
-      <p className="muted mb-2 text-xs">«تلقائي لمشتركي الباقة»: كل عميل باقته فيها الجدولة تنطلب منه الصلاحية عند الربط. قبل موافقة Meta على الصلاحية يشتغل فقط للحسابات المضافة كمختبرين — وإذا حوّلت التطبيق لوضع Live قبل الموافقة، ارجعه «حسابي فقط».</p>
-      <div className="seg" role="group" aria-label="طلب صلاحية النشر">
-        {opts.map(([k, l]) => <button key={k} type="button" aria-pressed={mode === k} className={mode === k ? "on" : ""} onClick={() => mode !== k && set(k)}>{l}</button>)}
-      </div>
-    </div>
   );
 }
 
