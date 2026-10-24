@@ -72,7 +72,7 @@ import { recoverMissedComments } from "./services/recover";
 import { duplicateIgFlags, freePlanRefusal, networkRefusal, recordFreeStart } from "./services/freeplan";
 import { isDisposable } from "./lib/disposable";
 import { auditCampaignComments } from "./services/audit";
-import { LIMITS, hasPublishScope, isImage, isVideo, optionalScopes, removeFiles, validatePost, verifyMediaUrl, wantsPublishScope, withSchedulingNotice, type PostKind } from "./services/publish";
+import { LIMITS, hasPublishScope, isImage, isVideo, optionalScopes, PUBLISH_SCOPE_SWITCH, removeFiles, validatePost, verifyMediaUrl, wantsPublishScope, withSchedulingNotice, type PostKind } from "./services/publish";
 import { captureInsights, insightsAccount, insightsScopeMode, insightsSummary, mediaInsightsSeries, wantsInsightsScope } from "./services/insights";
 import { analyticsByCampaign, analyticsByPost, analyticsDevices, analyticsFollow, analyticsHeatmap, analyticsOverview, analyticsRetention, osFamily, tzOffsetMinutes, type AnalyticsFilter, type EventType, type HeatKind } from "./services/analytics";
 import { deleteDraws, DrawFailure, EXCLUDE_LABELS, fetchBatch, loadDraw, pickNext, preview, replaceWinner, runDraw, settingsOf, winnersOf } from "./services/draws";
@@ -2262,11 +2262,12 @@ export function createApp() {
       price_note: (await getSetting<string | null>(c.env.DB, OWNER_TENANT, "price_note", null)) ?? DEFAULT_PRICE_NOTE,
       exchange_rates: knownRates(await getSetting<ExchangeRates>(c.env.DB, OWNER_TENANT, "exchange_rates", DEFAULT_RATES)),
       code_box: await codeBoxOf(c.env.DB),
+      publish_scope_customers: await getSetting<boolean>(c.env.DB, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, true),
     }),
   );
   owner.put("/settings", async (c) => {
     const httpsOrEmpty = z.string().trim().max(300).refine((v) => v === "" || /^https:\/\//.test(v), "الرابط يجب أن يبدأ بـ https://");
-    const p = await parseBody(c, z.object({ sales_contact: httpsOrEmpty.optional(), app_download_url: httpsOrEmpty.optional(), card_button_label: z.string().trim().max(40).optional(), silence_alert: z.boolean().optional(), price_note: z.string().trim().max(60).optional(), exchange_rates: exchangeRatesSchema.optional(),
+    const p = await parseBody(c, z.object({ sales_contact: httpsOrEmpty.optional(), app_download_url: httpsOrEmpty.optional(), card_button_label: z.string().trim().max(40).optional(), silence_alert: z.boolean().optional(), price_note: z.string().trim().max(60).optional(), exchange_rates: exchangeRatesSchema.optional(), publish_scope_customers: z.boolean().optional(),
       code_box: z.object({
         enabled: z.boolean(),
         title: z.string().trim().max(60),
@@ -2283,6 +2284,10 @@ export function createApp() {
     if (p.data.silence_alert !== undefined) await setSetting(c.env.DB, OWNER_TENANT, "silence_alert", p.data.silence_alert);
     if (p.data.price_note !== undefined) await setSetting(c.env.DB, OWNER_TENANT, "price_note", p.data.price_note);
     if (p.data.code_box) await setSetting(c.env.DB, OWNER_TENANT, "code_box", p.data.code_box);
+    if (p.data.publish_scope_customers !== undefined) {
+      await setSetting(c.env.DB, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, p.data.publish_scope_customers);
+      await audit(c.env.DB, T(c), c.get("session").username, "publish_scope.updated", undefined, { customers: p.data.publish_scope_customers });
+    }
     return c.json({ ok: true });
   });
 

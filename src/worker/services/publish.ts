@@ -1,6 +1,9 @@
 import type { Env } from "../env";
 import type { AccountRow } from "../engine/context";
-import { all, audit, first, OWNER_TENANT, run } from "../lib/db";
+import { all, audit, first, getSetting, OWNER_TENANT, run } from "../lib/db";
+
+/** Owner setting: ask customers (on plans with scheduling) for the publishing permission. */
+export const PUBLISH_SCOPE_SWITCH = "publish_scope_customers";
 import { hex, timingSafeEqual } from "../lib/crypto";
 import { INSIGHTS_SCOPE, PUBLISH_SCOPE, type HttpMetaClient } from "../meta/client";
 import type { MetaError, MetaResult } from "../meta/types";
@@ -80,11 +83,13 @@ export const LIMITS = {
 // ---- who is asked for the permission (same pattern as insights) -------------------------------------------------
 
 /**
- * Automatic by plan, like every other feature: the owner, and every customer whose active plan includes
- * scheduling, is asked for the publishing permission when connecting.
+ * The owner is always asked for the publishing permission when connecting. Customers whose active plan includes
+ * scheduling are asked automatically while the owner's switch is on (default) — the owner turns it off while the
+ * Meta app is live but the permission is not approved yet, so customers can still connect.
  */
 export async function wantsPublishScope(db: D1Database, tenantId: number): Promise<boolean> {
   if (tenantId === OWNER_TENANT) return true;
+  if (!(await getSetting<boolean>(db, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, true))) return false;
   const e = await getEntitlement(db, tenantId);
   return e.owner || (e.active && !!e.limits.scheduling);
 }

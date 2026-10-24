@@ -28,6 +28,22 @@ describe("publishing permission requested by plan", () => {
   });
 });
 
+describe("the owner's switch for asking customers", () => {
+  beforeEach(async () => {
+    await resetDb();
+    await DB.prepare("UPDATE plans SET limits = json_set(limits, '$.scheduling', json(?)) WHERE id = 'max'").bind("true").run();
+  });
+  it("off: only the owner is asked; on again: customers with scheduling are asked", async () => {
+    const withIt = await tenant("max");
+    const set = (on: boolean) => DB.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES ('publish_scope_customers', ?, 0) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(JSON.stringify(on)).run();
+    await set(false);
+    expect(await wantsPublishScope(DB, 1)).toBe(true);
+    expect(await wantsPublishScope(DB, withIt)).toBe(false);
+    await set(true);
+    expect(await wantsPublishScope(DB, withIt)).toBe(true);
+  });
+});
+
 describe("bell message when a plan upgrade adds scheduling", () => {
   const bell = (tid: number) => DB.prepare("SELECT title, body FROM app_notifications WHERE tenant_id = ? AND kind = 'message'").bind(tid).all<any>().then((r) => r.results);
   const account = async (tid: number, scopes: string[]) => {

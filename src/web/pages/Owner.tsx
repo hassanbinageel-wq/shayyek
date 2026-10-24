@@ -551,7 +551,7 @@ const LIMIT_FIELDS: Array<[string, string]> = [
 function PlansTab() {
   const { data, reload } = useAsync(() => api<any[]>("/api/owner/plans"), []);
   const { data: catalog, reload: reloadCatalog } = useAsync(() => api<any>("/api/public/plans"), []);
-  const { data: settings, reload: reloadSettings } = useAsync(() => api<{ sales_contact: string; app_download_url: string; card_button_label: string; price_note: string; exchange_rates: Record<string, number>; code_box: CodeBox }>("/api/owner/settings"), []);
+  const { data: settings, reload: reloadSettings } = useAsync(() => api<{ sales_contact: string; app_download_url: string; card_button_label: string; price_note: string; exchange_rates: Record<string, number>; code_box: CodeBox; publish_scope_customers: boolean }>("/api/owner/settings"), []);
   const [contact, setContact] = useState<string | null>(null);
   const [download, setDownload] = useState<string | null>(null);
   const [cardLabel, setCardLabel] = useState<string | null>(null);
@@ -566,8 +566,25 @@ function PlansTab() {
       toast(e.message, "bad");
     }
   };
+  const togglePublish = async (on: boolean) => {
+    const ok = await askConfirm(
+      on
+        ? { title: "طلب صلاحية النشر من العملاء؟", message: "كل عميل باقته فيها الجدولة يُطلب منه إذن النشر لما يربط حسابه.\n\nشغّله بعد ما توافق Meta على إذن instagram_business_content_publish في مراجعة التطبيق (أو والتطبيق في وضع التطوير للحسابات المختبِرة) — وإلا ممكن يفشل ربط العملاء.\n\nاللي ربطوا قبل يحتاجون يعيدون الربط مرة وحدة.", confirmLabel: "شغّل" }
+        : { title: "إيقاف طلب صلاحية النشر من العملاء؟", message: "العملاء يربطون حساباتهم بدون إذن النشر، والجدولة ما تشتغل عندهم لين تشغّله. حسابك أنت يبقى يُطلب منه الإذن.\n\nاستخدمه إذا التطبيق صار Live قبل موافقة Meta على إذن النشر.", confirmLabel: "أوقف", danger: true },
+    );
+    if (ok) saveSetting({ publish_scope_customers: on });
+  };
   return (
     <div className="space-y-5">
+      <Card title="🗓️ صلاحية النشر (الجدولة)">
+        <Toggle
+          checked={settings.publish_scope_customers}
+          onChange={togglePublish}
+          label="طلب صلاحية النشر من العملاء"
+          description={settings.publish_scope_customers ? "مفعّل: كل عميل باقته فيها الجدولة يُطلب منه إذن النشر عند الربط." : "موقوف: الإذن يُطلب من حسابك فقط — الجدولة ما تشتغل للعملاء."}
+        />
+        <p className="muted mt-2 text-xs">أوقفه إذا حوّلت تطبيق Meta لوضع Live قبل موافقتهم على إذن النشر، وشغّله بعد الموافقة.</p>
+      </Card>
       <Card title="صفحة الباقات العامة">
         <p className="muted mb-3 text-sm">
           صفحة يشوفها أي شخص فيها باقاتك وأسعارك:{" "}
