@@ -33,6 +33,8 @@ async function post(env: Env, from: string, m: { to: string; subject: string; te
 export async function sendEmail(env: Env, m: { to: string; subject: string; text: string; html: string }): Promise<{ ok: boolean; error?: string }> {
   if (!env.RESEND_API_KEY) return { ok: false, error: "email_not_configured" };
   const from = env.EMAIL_FROM || DEFAULT_FROM;
+  // The logo at the top of the layout is a hosted image (mail apps block embedded SVG and most inline images).
+  m = { ...m, html: m.html.replaceAll(LOGO_PLACEHOLDER, `${(env.PUBLIC_BASE_URL || "https://shayyek.sa").replace(/\/$/, "")}/brand/logo-email.png`) };
   let r = await post(env, from, m);
   if (!r.ok && r.status && r.status >= 400 && r.status < 500 && r.status !== 429 && env.EMAIL_FROM_FALLBACK && env.EMAIL_FROM_FALLBACK !== from) {
     await noteEmailError(env, `${from} → ${r.error}`);
@@ -52,6 +54,8 @@ export function lastEmailError(env: Env): Promise<{ at: number; error: string } 
   return getSetting<{ at: number; error: string } | null>(env.DB, 1, "email_last_error", null);
 }
 
+const LOGO_PLACEHOLDER = "__SHAYYEK_LOGO__";
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /** A simple right-to-left email: title, paragraphs, an optional button and a small footer. */
@@ -61,7 +65,7 @@ export function emailLayout(o: { title: string; lines: string[]; button?: { labe
   const code = o.code ? `<p style="margin:18px 0;font-size:30px;letter-spacing:8px;font-weight:bold;color:#0f172a;direction:ltr;text-align:center">${esc(o.code)}</p>` : "";
   return `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f5f3ff;font-family:Tahoma,Arial,sans-serif">
 <div style="max-width:520px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border-radius:18px;padding:24px;border:1px solid #ede9fe">
-<p style="margin:0 0 6px;font-size:13px;font-weight:bold;color:#7c3aed">شيّك</p>
+<p style="margin:0 0 14px"><img src="${LOGO_PLACEHOLDER}" width="150" height="51" alt="شيّك Shayyek" style="display:block;border:0;width:150px;height:auto"></p>
 <h1 style="margin:0 0 16px;font-size:20px;color:#0f172a">${esc(o.title)}</h1>${p}${code}${btn}
 <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#94a3b8">${esc(o.footer ?? "إذا ما طلبت هذا، تجاهل الرسالة — حسابك بأمان ولن يتغير شيء.")}</p>
 </div></div></body></html>`;

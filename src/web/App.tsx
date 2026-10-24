@@ -9,6 +9,7 @@ import { NotificationBell } from "./components/NotificationBell";
 import { HelpWidget, IncidentBanner, useSupportCenter } from "./components/HelpWidget";
 import { PromoLayer } from "./components/Promos";
 import { extraNote, messagesLeft } from "./lib/messagesBar";
+import { BrandLogo } from "./components/Brand";
 import { AccountAvatar } from "./components/UserAvatar";
 import { LoginPage } from "./pages/Login";
 import { canOpenPage } from "../shared/staff";
@@ -371,12 +372,9 @@ export function App() {
   return (
     <div className="min-h-screen lg:flex">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] px-4 py-5 lg:flex">
-        <Link to="/" className="mb-5 flex items-center gap-3 px-2">
-          <span className="grad flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg shadow-violet-500/30"><Icon name="zap" size={22} /></span>
-          <span className="leading-tight">
-            <b className="font-display block text-[17px] font-extrabold">Shayyek شيّك</b>
-            <span className="muted text-xs">شيّك… وارتاح</span>
-          </span>
+        <Link to="/" className="mb-5 block px-2" aria-label="الرئيسية">
+          <BrandLogo className="h-12" />
+          <span className="muted mt-1 block text-xs">شيّك… وارتاح</span>
         </Link>
         <Link to="/connection" className="mb-3 flex items-center gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
           <span className="rounded-full p-[2px]" style={{ background: "conic-gradient(from 200deg,#f97316,#db2777,#7c3aed,#f97316)" }}>
@@ -433,11 +431,10 @@ export function App() {
 
       <div className="min-w-0 flex-1">
         <header style={{ paddingTop: "max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px))" }} className={`sticky top-0 z-30 box-content flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 backdrop-blur lg:h-[68px] lg:px-8 ${flash ? "bar-flash" : ""}`}>
-          <Link to="/" className="flex items-center gap-2 lg:hidden" aria-label="الرئيسية">
-            <span className="grad flex h-9 w-9 items-center justify-center rounded-xl text-white"><Icon name="zap" size={19} /></span>
+          <Link to="/" className="flex shrink-0 items-center lg:hidden" aria-label="الرئيسية">
+            <BrandLogo className="h-9" />
           </Link>
           <div className="min-w-0">
-            <div className="font-display truncate text-[15px] font-bold lg:hidden">شيّك <span className="muted font-semibold">Shayyek</span></div>
             <div className="font-display hidden truncate text-base font-bold lg:block">{current?.label ?? "Shayyek"}</div>
           </div>
           <div className="mr-auto flex items-center gap-2">

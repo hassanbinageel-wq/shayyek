@@ -1,4 +1,5 @@
 import { Icon } from "../components/Icon";
+import { BrandLogo } from "../components/Brand";
 import { Suspense, lazy, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, setCsrf } from "../api";
 import { API_BASE, deviceToken, isNative, openExternal } from "../platform";
@@ -197,9 +198,8 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
       {/* Top-aligned on phones: boxes that appear after loading (download, fingerprint) never push the form. */}
       <div className="flex flex-1 items-start justify-center p-5 lg:items-center">
         <form onSubmit={submit} className="w-full max-w-[400px] space-y-4">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="grad flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-lg shadow-violet-500/30"><Icon name="zap" size={22} /></span>
-            <span className="leading-tight"><b className="font-display block text-lg font-extrabold">Shayyek شيّك</b></span>
+          <div className="mb-6">
+            <BrandLogo className="h-14" />
           </div>
           <div>
             <h1 className="text-[28px] font-extrabold leading-tight">{status?.needs_setup ? "إعداد حساب الإدارة" : register ? "أنشئ حسابك ✨" : "أهلًا بعودتك 👋"}</h1>
@@ -339,9 +339,8 @@ function PublicPlansPage() {
     <div className="min-h-screen bg-[var(--bg)]">
       <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <a href="#/" className="flex items-center gap-2.5">
-            <span className="grad flex h-9 w-9 items-center justify-center rounded-xl text-white"><Icon name="zap" size={18} /></span>
-            <b className="font-display max-[379px]:sr-only">Shayyek شيّك</b>
+          <a href="#/" className="flex items-center" aria-label="شيّك Shayyek">
+            <BrandLogo className="h-10" />
           </a>
           <div className="flex gap-2">
             <a href="#/" className="btn btn-ghost min-h-10 text-xs">تسجيل الدخول</a>

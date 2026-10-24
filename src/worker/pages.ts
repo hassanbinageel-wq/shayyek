@@ -43,7 +43,8 @@ function layout(title: string, body: string, extraHead = "", lang: Lang = "ar", 
 body{font-family:"Thmanyah Sans",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;max-width:760px;margin:0 auto;padding:24px 16px;line-height:1.8;background:#fff;color:#111}
 @media (prefers-color-scheme:dark){body{background:#0b0f14;color:#e7ecf2}a{color:#7cc4ff}}
 h1{font-size:1.5rem}h2{font-size:1.15rem;margin-top:1.6em}.btn{display:inline-block;padding:14px 22px;border-radius:12px;background:#6d28d9;color:#fff;text-decoration:none;font-weight:700}
-.muted{opacity:.75;font-size:.95rem}</style></head><body>${sw}${body}${operatorFooter(lang)}</body></html>`;
+.muted{opacity:.75;font-size:.95rem}.logo{display:block;height:56px;width:auto;margin:0 0 8px}.logo.d{display:none}
+@media (prefers-color-scheme:dark){.logo.l{display:none}.logo.d{display:block}}</style></head><body>${sw}<a href="/" aria-label="${en ? "Shayyek" : "شيّك"}"><img class="logo l" src="/brand/logo-light.svg" alt="شيّك Shayyek"><img class="logo d" src="/brand/logo-dark.svg" alt="شيّك Shayyek"></a>${body}${operatorFooter(lang)}</body></html>`;
 }
 
 const contact = (lang: Lang) =>

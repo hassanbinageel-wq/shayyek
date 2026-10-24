@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
           disable: isApp, // no service worker inside the APK (files are bundled)
           registerType: "prompt",
           injectRegister: false,
-          includeAssets: ["icons/*.png", "favicon.svg"],
+          includeAssets: ["icons/*.png", "favicon.svg", "brand/*.svg"],
           manifest: {
             name: "شيّك — Shayyek",
             short_name: "شيّك",
