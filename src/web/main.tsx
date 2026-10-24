@@ -4,6 +4,7 @@ import "./index.css";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ConfirmHost, askConfirm } from "./components/Confirm";
+import { SplashIntro } from "./components/SplashIntro";
 import { APP_TARGET } from "./platform";
 
 // A customer's invitation link (…#/register?ref=CODE): kept until sign-up.
@@ -19,6 +20,7 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <App />
       <ConfirmHost />
+      <SplashIntro />
     </ErrorBoundary>
   </StrictMode>,
 );
