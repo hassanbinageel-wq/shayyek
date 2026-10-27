@@ -14,8 +14,8 @@ export const OPERATOR = {
   cr: "7042872536",
   country: "المملكة العربية السعودية",
   countryEn: "Kingdom of Saudi Arabia",
-  address: "شارع عائشة بنت ابي بكر، الرياض 12985، المملكة العربية السعودية",
-  addressEn: "Aisha Bint Abi Bakr St, Riyadh 12985, Kingdom of Saudi Arabia",
+  address: "8342 شارع عائشة بنت ابي بكر، حي الزهرة، الرياض 12985، المملكة العربية السعودية",
+  addressEn: "8342 Ayesha Bint Abi Bakr St, Al Zahrah Dist., Riyadh 12985, Kingdom of Saudi Arabia",
   phone: "+966559559551",
   email: "support@shayyek.sa",
 };
