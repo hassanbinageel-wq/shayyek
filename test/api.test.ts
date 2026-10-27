@@ -315,7 +315,7 @@ describe("public pages", () => {
       const en = await (await call(`${path}?lang=en`)).text();
       expect(en).toContain('dir="ltr"');
       expect(en).toContain("support@shayyek.sa");
-      expect(en).toContain("Arqam Al-Mustadeerah");
+      expect(en).toContain("ARQAM ALMASTADIRA For Advertising");
     }
     expect(await (await call("/terms?lang=en")).text()).toContain("Governing law");
   });

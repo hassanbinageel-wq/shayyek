@@ -10,13 +10,12 @@ export const PAGE_CSP =
 /** The legal operator of the service, exactly as in the commercial registration (Meta business verification matches it). */
 export const OPERATOR = {
   name: "شركة ارقام المستديرة للدعاية والاعلان",
-  nameEn: "Arqam Al-Mustadeerah Advertising Company",
+  nameEn: "ARQAM ALMASTADIRA For Advertising",
   cr: "7042872536",
   country: "المملكة العربية السعودية",
   countryEn: "Kingdom of Saudi Arabia",
   address: "8342 شارع عائشة بنت ابي بكر، حي الزهرة، الرياض 12985، المملكة العربية السعودية",
   addressEn: "8342 Ayesha Bint Abi Bakr St, Al Zahrah Dist., Riyadh 12985, Kingdom of Saudi Arabia",
-  phone: "+966559559551",
   email: "support@shayyek.sa",
 };
 
@@ -28,8 +27,8 @@ const href = (path: string, lang: Lang) => (lang === "en" ? `${path}?lang=en` : 
 const operatorFooter = (lang: Lang) =>
   `<footer style="margin-top:32px;padding-top:14px;border-top:1px solid rgba(127,127,127,.25);font-size:.85rem;opacity:.75;text-align:center">${
     lang === "en"
-      ? `Shayyek (شيّك) is a service provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}) — Unified National Number (Commercial Registration): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.addressEn)} — <a href="tel:${OPERATOR.phone}" dir="ltr">${OPERATOR.phone}</a> — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
-      : `شيّك (Shayyek) خدمة تقدّمها ${esc(OPERATOR.name)} — الرقم الوطني الموحد (السجل التجاري): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.address)} — <a href="tel:${OPERATOR.phone}" dir="ltr">${OPERATOR.phone}</a> — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
+      ? `Shayyek (شيّك) is a service provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}) — Unified National Number (Commercial Registration): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.addressEn)} — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
+      : `شيّك (Shayyek) خدمة تقدّمها ${esc(OPERATOR.name)} — الرقم الوطني الموحد (السجل التجاري): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.address)} — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
   }<br><a href="${href("/terms", lang)}">${lang === "en" ? "Terms" : "الشروط"}</a> · <a href="${href("/privacy", lang)}">${lang === "en" ? "Privacy" : "الخصوصية"}</a> · <a href="${href("/refund", lang)}">${lang === "en" ? "Refunds" : "الاسترجاع"}</a> · <a href="${href("/data-deletion", lang)}">${lang === "en" ? "Data deletion" : "حذف البيانات"}</a></footer>`;
 
 /**

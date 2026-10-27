@@ -313,7 +313,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
             </a>
           )}
           <p className="muted text-center text-[11px] leading-relaxed">
-            خدمة تقدّمها شركة ارقام المستديرة للدعاية والاعلان — الرقم الوطني الموحد 7042872536 — الرياض 12985 — <span dir="ltr">+966559559551</span>
+            خدمة تقدّمها شركة ارقام المستديرة للدعاية والاعلان — الرقم الوطني الموحد 7042872536
             <br />
             <a className="inline-block py-1 underline" href={`${API_BASE || ""}/privacy`} target="_blank" rel="noopener">الخصوصية</a> · <a className="inline-block py-1 underline" href={`${API_BASE || ""}/terms`} target="_blank" rel="noopener">الشروط</a> · <a className="inline-block py-1 underline" href={`${API_BASE || ""}/refund`} target="_blank" rel="noopener">الاسترجاع</a>
           </p>
@@ -356,7 +356,7 @@ function PublicPlansPage() {
         </div>
         {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={data} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
         <p className="muted text-center text-[11px] leading-relaxed">
-          خدمة تقدّمها شركة ارقام المستديرة للدعاية والاعلان — الرقم الوطني الموحد 7042872536 — الرياض 12985 — <span dir="ltr">+966559559551</span>
+          خدمة تقدّمها شركة ارقام المستديرة للدعاية والاعلان — الرقم الوطني الموحد 7042872536
           <br />
           <a className="underline" href={`${API_BASE || ""}/privacy`} target="_blank" rel="noopener">الخصوصية</a> · <a className="underline" href={`${API_BASE || ""}/terms`} target="_blank" rel="noopener">الشروط</a> · <a className="underline" href={`${API_BASE || ""}/refund`} target="_blank" rel="noopener">الاسترجاع</a>
         </p>
