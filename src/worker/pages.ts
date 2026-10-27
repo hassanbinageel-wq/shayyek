@@ -14,6 +14,9 @@ export const OPERATOR = {
   cr: "7042872536",
   country: "المملكة العربية السعودية",
   countryEn: "Kingdom of Saudi Arabia",
+  address: "شارع عائشة بنت ابي بكر، الرياض 12985، المملكة العربية السعودية",
+  addressEn: "Aisha Bint Abi Bakr St, Riyadh 12985, Kingdom of Saudi Arabia",
+  phone: "+966559559551",
   email: "support@shayyek.sa",
 };
 
@@ -25,8 +28,8 @@ const href = (path: string, lang: Lang) => (lang === "en" ? `${path}?lang=en` : 
 const operatorFooter = (lang: Lang) =>
   `<footer style="margin-top:32px;padding-top:14px;border-top:1px solid rgba(127,127,127,.25);font-size:.85rem;opacity:.75;text-align:center">${
     lang === "en"
-      ? `Shayyek (شيّك) is a service provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}) — Unified National Number (Commercial Registration): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.countryEn)} — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
-      : `شيّك (Shayyek) خدمة تقدّمها ${esc(OPERATOR.name)} — الرقم الوطني الموحد (السجل التجاري): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.country)} — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
+      ? `Shayyek (شيّك) is a service provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}) — Unified National Number (Commercial Registration): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.addressEn)} — <a href="tel:${OPERATOR.phone}" dir="ltr">${OPERATOR.phone}</a> — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
+      : `شيّك (Shayyek) خدمة تقدّمها ${esc(OPERATOR.name)} — الرقم الوطني الموحد (السجل التجاري): ${esc(OPERATOR.cr)} — ${esc(OPERATOR.address)} — <a href="tel:${OPERATOR.phone}" dir="ltr">${OPERATOR.phone}</a> — <a href="mailto:${OPERATOR.email}">${OPERATOR.email}</a>`
   }<br><a href="${href("/terms", lang)}">${lang === "en" ? "Terms" : "الشروط"}</a> · <a href="${href("/privacy", lang)}">${lang === "en" ? "Privacy" : "الخصوصية"}</a> · <a href="${href("/refund", lang)}">${lang === "en" ? "Refunds" : "الاسترجاع"}</a> · <a href="${href("/data-deletion", lang)}">${lang === "en" ? "Data deletion" : "حذف البيانات"}</a></footer>`;
 
 /**
@@ -58,7 +61,7 @@ export function privacyPage(baseUrl: string, lang: Lang = "ar"): string {
     return layout(
       "Privacy Policy",
       `<h1>Privacy Policy — Shayyek</h1>
-<p>Service operator and data controller: ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}), Unified National Number ${esc(OPERATOR.cr)}, ${esc(OPERATOR.countryEn)}.</p>
+<p>Service operator and data controller: ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}), Unified National Number ${esc(OPERATOR.cr)}, ${esc(OPERATOR.addressEn)}.</p>
 <p>Shayyek is a tool that the owner of a professional Instagram account uses to automate replies to comments, story replies and mentions on their own account through Meta's official API.</p>
 <h2>Data we process</h2>
 <ul>
@@ -90,7 +93,7 @@ ${contact(lang)}
   return layout(
     "سياسة الخصوصية",
     `<h1>سياسة الخصوصية — شيّك</h1>
-<p>مشغّل الخدمة والمسؤول عن البيانات: ${esc(OPERATOR.name)}، الرقم الوطني الموحد ${esc(OPERATOR.cr)}، ${esc(OPERATOR.country)}.</p>
+<p>مشغّل الخدمة والمسؤول عن البيانات: ${esc(OPERATOR.name)}، الرقم الوطني الموحد ${esc(OPERATOR.cr)}، ${esc(OPERATOR.address)}.</p>
 <p>شيّك أداة يستخدمها صاحب الحساب لأتمتة الرد على التعليقات وردود الستوري والإشارات في حسابه الاحترافي على إنستقرام عبر واجهة Meta الرسمية.</p>
 <h2>البيانات التي نعالجها</h2>
 <ul>
@@ -126,7 +129,7 @@ export function termsPage(lang: Lang = "ar"): string {
     return layout(
       "Terms of Use",
       `<h1>Terms of Use — Shayyek</h1>
-<p>These terms govern the use of Shayyek, provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}), Unified National Number ${esc(OPERATOR.cr)}. By creating an account or using the service you agree to them.</p>
+<p>These terms govern the use of Shayyek, provided by ${esc(OPERATOR.nameEn)} (${esc(OPERATOR.name)}), Unified National Number ${esc(OPERATOR.cr)}, ${esc(OPERATOR.addressEn)}. By creating an account or using the service you agree to them.</p>
 <h2>1. The service</h2>
 <p>Shayyek automates replies to comments, story replies, mentions and direct messages on the customer's own professional Instagram account through Meta's official APIs, with an inbox, statistics and related tools. The service depends on Meta's platform: we do not control its availability, limits or policy changes, and some features may change or stop if Meta changes them.</p>
 <h2>2. Your account</h2>
@@ -162,7 +165,7 @@ ${contact(lang)}
   return layout(
     "شروط الاستخدام",
     `<h1>شروط الاستخدام — شيّك</h1>
-<p>تنظّم هذه الشروط استخدام «شيّك» التي تقدّمها ${esc(OPERATOR.name)}، الرقم الوطني الموحد ${esc(OPERATOR.cr)}. بإنشاء حساب أو استخدام الخدمة فأنت توافق عليها.</p>
+<p>تنظّم هذه الشروط استخدام «شيّك» التي تقدّمها ${esc(OPERATOR.name)}، الرقم الوطني الموحد ${esc(OPERATOR.cr)}، ${esc(OPERATOR.address)}. بإنشاء حساب أو استخدام الخدمة فأنت توافق عليها.</p>
 <h2>1. الخدمة</h2>
 <p>شيّك تؤتمت الرد على التعليقات وردود الستوري والإشارات والرسائل الخاصة في حساب إنستقرام الاحترافي الخاص بالعميل عبر واجهات Meta الرسمية، مع صندوق رسائل وإحصائيات وأدوات مرتبطة. تعتمد الخدمة على منصة Meta: لا نتحكم في توفرها أو حدودها أو تغيّر سياساتها، وقد تتغير بعض الميزات أو تتوقف إذا غيّرتها Meta.</p>
 <h2>2. حسابك</h2>
