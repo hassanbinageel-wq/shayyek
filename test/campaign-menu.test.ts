@@ -43,6 +43,20 @@ beforeEach(async () => {
   await seedAccount();
 });
 
+describe("which campaign answers when several match (one private reply per comment)", () => {
+  it("a campaign for chosen posts beats one for all posts (even when older); otherwise the newest", async () => {
+    await seedCampaign({ name: "منشور", keywords: [{ keyword: "سعر" }], scope: "selected", media_ids: ["media_1"], final_text: "رد المنشور" });
+    await seedCampaign({ name: "عام قديم", keywords: [{ keyword: "سعر" }], final_text: "رد العام القديم" });
+    await seedCampaign({ name: "عام جديد", keywords: [{ keyword: "سعر" }], final_text: "رد العام الجديد" });
+    const meta = new MockMeta();
+    const last = () => meta.calls.filter((c) => c.kind === "private_reply").at(-1)!.msg!.text;
+    await deliver(commentPayload({ text: "سعر", commentId: "c_p1", from: "u_a", username: "a", mediaId: "media_1" }), meta);
+    expect(last()).toContain("رد المنشور");
+    await deliver(commentPayload({ text: "سعر", commentId: "c_p2", from: "u_b", username: "b", mediaId: "media_2" }), meta);
+    expect(last()).toContain("رد العام الجديد");
+  });
+});
+
 describe("«قائمة تفاعلية»: a campaign's own menu from a comment", () => {
   it("answers the comment with the campaign's tree as the single private reply; each tap gets its option's reply", async () => {
     await setInboxMenu(INBOX_MENU);
@@ -127,11 +141,22 @@ describe("«قائمة تفاعلية»: a campaign's own menu from a comment", 
     expect(campaignInputSchema.parse({ name: "x", type: "comment", match_all: true, keywords: [], final_text: "t", max_deliveries_per_user: 0 }).max_deliveries_per_user).toBe(2);
     expect(campaignInputSchema.parse({ name: "x", type: "comment", match_all: true, keywords: [], final_text: "t", max_deliveries_per_user: 1 }).max_deliveries_per_user).toBe(1);
     expect(campaignInputSchema.parse({ name: "x", type: "comment", match_all: true, keywords: [], final_text: "t", max_deliveries_per_user: 9 }).max_deliveries_per_user).toBe(2);
-    // an older campaign stored with 0 (= no limit) is treated as at most 2
-    await seedCampaign({ keywords: [{ keyword: "كورس" }], max_deliveries_per_user: 0 });
+    expect(campaignInputSchema.parse({ name: "x", type: "comment", match_all: true, keywords: [], final_text: "t", per_user_cooldown_hours: 0 }).per_user_cooldown_hours).toBe(24);
+    expect(campaignInputSchema.parse({ name: "x", type: "comment", match_all: true, keywords: [], final_text: "t", per_user_cooldown_hours: 200 }).per_user_cooldown_hours).toBe(72);
+    // an older campaign stored with 0 deliveries (= no limit) and no wait: at most 2, at least 24 hours apart
+    await seedCampaign({ keywords: [{ keyword: "كورس" }], max_deliveries_per_user: 0, per_user_cooldown_hours: 0 });
     const meta = new MockMeta();
-    for (let i = 0; i < 3; i++) await deliver(commentPayload({ text: "كورس", commentId: `c_lim${i}` }), meta);
-    expect(meta.calls.filter((c) => c.kind === "private_reply")).toHaveLength(2);
+    const replies = () => meta.calls.filter((c) => c.kind === "private_reply").length;
+    const ageFlows = () => DB.prepare("UPDATE conversation_flows SET created_at = created_at - 25 * 3600000").run();
+    await deliver(commentPayload({ text: "كورس", commentId: "c_lim0" }), meta);
+    await deliver(commentPayload({ text: "كورس", commentId: "c_lim1" }), meta);
+    expect(replies()).toBe(1); // inside the 24-hour wait
+    await ageFlows();
+    await deliver(commentPayload({ text: "كورس", commentId: "c_lim2" }), meta);
+    expect(replies()).toBe(2);
+    await ageFlows();
+    await deliver(commentPayload({ text: "كورس", commentId: "c_lim3" }), meta);
+    expect(replies()).toBe(2); // the most is twice
     // the per-hour limit across campaigns is 4, whatever the old setting says
     await DB.prepare("UPDATE app_settings SET value = '100' WHERE key = 'global_user_hourly_limit'").run();
     for (let i = 0; i < 5; i++) await seedCampaign({ keywords: [{ keyword: `كلمة${i}` }] });

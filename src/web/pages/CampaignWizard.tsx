@@ -6,6 +6,7 @@ import { renderTemplate, claimsDelivery, claimsFollowRequired, contentLinkButton
 import { AR_LABELS } from "../../shared/states";
 import { Alert, Card, Field, InfoDot, Modal, Spinner, Toggle, currentTz, toast, fmtTime } from "../components/ui";
 import { newKey, parseMenuRoot, type MenuNode } from "../../shared/menu";
+import { clampCooldown } from "../../shared/limits";
 import { CampaignMenuEditor } from "../components/DmMenuEditor";
 import { PhonePreview, type ChatMsg, type CommentMsg } from "../components/PhonePreview";
 import { localInputToUtc, utcToLocalInput } from "../lib/tzInput";
@@ -121,7 +122,7 @@ const STEPS = [
   "طلب المتابعة وإعادة التحقق",
   "المحتوى النهائي",
   "الرد العام",
-  "الجدول والأولوية والتكرار",
+  "الجدول والتكرار",
   "المعاينة والمحاكاة",
   "التفعيل",
 ];
@@ -717,12 +718,12 @@ export function CampaignWizard({ id }: { id: number | null }) {
                     ? `الحملة ترد على التعليقات من ${fmtTime(form.schedule_start, form.timezone)}، وتستمر لين توقفها أنت.`
                     : `الحملة ترد من لحظة تفعيلها لين ${fmtTime(form.schedule_end!, form.timezone)}، وبعدها ما ترد على أحد.`}
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label={<span className="inline-flex items-center gap-1">الأولوية <InfoDot text="لو تعليق واحد طابق أكثر من حملة (مثلًا نفس الكلمة في حملتين)، ترد الحملة اللي رقم أولويتها أكبر فقط — ما يوصل الشخص ردّين. لو تساوت الأولوية ترد الحملة الأقدم. الافتراضي 100." /></span>} hint="عند تطابق عدة حملات تُنفَّذ الأعلى فقط.">
-                <input className="input" type="number" min={0} max={1000} value={form.priority} onChange={(e) => set("priority", Number(e.target.value))} />
-              </Field>
-              <Field label={<span className="inline-flex items-center gap-1">فاصل لكل شخص (ساعات) <InfoDot text="بعد ما يستلم الشخص رد الحملة، كم ساعة لازم تمر قبل ما ترد عليه نفس الحملة مرة ثانية. مهم لو اخترت «مرتين» في أقصى تسليم: مثلًا 24 = ما يستلم المرة الثانية إلا بعد يوم. 0 = بدون فاصل." /></span>} hint="0 = بدون فاصل">
-                <input className="input" type="number" min={0} value={form.per_user_cooldown_hours} onChange={(e) => set("per_user_cooldown_hours", Number(e.target.value))} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label={<span className="inline-flex items-center gap-1">فاصل لكل شخص <InfoDot text="بعد ما يستلم الشخص رد الحملة، كم لازم ينتظر قبل ما ترد عليه نفس الحملة مرة ثانية. يفرق لما تختار «مرتين» في أقصى تسليم: 24 ساعة = المرة الثانية بعد يوم على الأقل، 3 أيام = أأمن لحسابك." /></span>}>
+                <select className="input" value={clampCooldown(form.per_user_cooldown_hours)} onChange={(e) => set("per_user_cooldown_hours", Number(e.target.value))}>
+                  <option value={24}>24 ساعة</option>
+                  <option value={72}>3 أيام</option>
+                </select>
               </Field>
               <Field label={<span className="inline-flex items-center gap-1">أقصى تسليم لكل شخص <InfoDot text="كم مرة يقدر نفس الشخص يستلم رد هذي الحملة. الحد مفعّل دائمًا (مرة أو مرتين) عشان ما يتكرر الإرسال لنفس الشخص — يحمي حسابك من شكل الرسائل المزعجة ويوفّر رسائل باقتك." /></span>}>
                 <select className="input" value={Math.min(2, Math.max(1, form.max_deliveries_per_user || 1))} onChange={(e) => set("max_deliveries_per_user", Number(e.target.value))}>

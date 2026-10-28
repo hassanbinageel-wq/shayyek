@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clampCooldown, clampDeliveries } from "./limits";
 import { MAX_PUBLIC_VARIANTS, MAX_PUBLIC_VARIANT_LENGTH } from "./template";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -19,9 +20,6 @@ export const keywordSchema = z.object({
   match_type: z.enum(["exact", "word", "contains"]),
 });
 
-/** Deliveries of a campaign's content to the same person: 1 or 2. Older data: 0 (= no limit) and larger values → 2. */
-export const MAX_DELIVERIES_CAP = 2;
-export const clampDeliveries = (v: number) => (!(v >= 1) ? MAX_DELIVERIES_CAP : Math.min(MAX_DELIVERIES_CAP, Math.trunc(v)));
 
 type MenuNodeIn = { key: string; label: string; text: string; link?: { title: string; url: string } | null; style: "buttons" | "quick"; children: MenuNodeIn[] };
 const menuNodeSchema: z.ZodType<MenuNodeIn> = z.lazy(() =>
@@ -69,7 +67,7 @@ export const campaignInputSchema = z
     schedule_start: z.number().int().nullable().optional(),
     schedule_end: z.number().int().nullable().optional(),
     timezone: text(64).default("Asia/Riyadh"),
-    per_user_cooldown_hours: z.number().int().min(0).max(24 * 365).default(24),
+    per_user_cooldown_hours: z.number().int().min(0).max(24 * 365).default(24).transform(clampCooldown),
     // Always on, at most twice per person per campaign (older values are brought into 1–2).
     max_deliveries_per_user: z.number().int().min(0).max(100).default(1).transform(clampDeliveries),
     max_verify_attempts: z.number().int().min(1).max(50).default(5),

@@ -1,6 +1,6 @@
 import { containsControlWord, evaluateMatch, START_WORDS, VERIFY_WORDS, type KeywordRule } from "../../shared/match";
 import { TERMINAL_FLOW_STATES } from "../../shared/states";
-import { clampDeliveries } from "../../shared/schemas";
+import { clampCooldown, clampDeliveries } from "../../shared/limits";
 
 /** Reply flows one person may start per hour across all campaigns (fixed; no longer a setting). */
 export const USER_HOURLY_FLOWS = 4;
@@ -266,8 +266,9 @@ async function triggerCampaign(
     ? await all<CampaignRow>(ctx.db, "SELECT * FROM campaigns WHERE id = ? AND tenant_id = ? AND type = ? AND deleted_at IS NULL", forcedCampaignId, account.tenant_id, type)
     : await all<CampaignRow>(
         ctx.db,
-        // Only the campaigns of the customer who owns this Instagram account.
-        "SELECT * FROM campaigns WHERE tenant_id = ? AND type = ? AND status = 'active' AND deleted_at IS NULL ORDER BY priority DESC, id ASC",
+        // Only the campaigns of the customer who owns this Instagram account. Meta allows one private reply per
+        // comment, so one campaign answers: a campaign for chosen posts before one for all posts, then the newest.
+        "SELECT * FROM campaigns WHERE tenant_id = ? AND type = ? AND status = 'active' AND deleted_at IS NULL ORDER BY (scope = 'selected') DESC, id DESC",
         account.tenant_id,
         type,
       );
@@ -299,13 +300,13 @@ async function triggerCampaign(
       return { status: "ignored", reason: "max_deliveries_reached", campaignId: chosen.id };
     }
   }
-  if (chosen.per_user_cooldown_hours > 0) {
+  {
     const recent = await first(
       ctx.db,
       "SELECT id FROM conversation_flows WHERE campaign_id = ? AND participant_id = ? AND created_at > ? LIMIT 1",
       chosen.id,
       participant.id,
-      now - chosen.per_user_cooldown_hours * 3_600_000,
+      now - clampCooldown(chosen.per_user_cooldown_hours) * 3_600_000,
     );
     if (recent) return { status: "ignored", reason: "user_cooldown", campaignId: chosen.id };
   }
