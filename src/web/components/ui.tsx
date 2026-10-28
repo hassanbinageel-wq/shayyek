@@ -35,6 +35,24 @@ const STAT_ACCENT: Record<string, string> = {
   orange: "bg-orange-500/10 text-orange-600 dark:text-orange-300",
   sky: "bg-sky-500/10 text-sky-600 dark:text-sky-300",
 };
+/** The "?" explanations can be hidden everywhere from the header button; remembered on this device. */
+const TIPS_KEY = "hsn_tips";
+export function tipsShown(): boolean {
+  try {
+    return localStorage.getItem(TIPS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+export function setTipsShown(on: boolean) {
+  document.documentElement.classList.toggle("hide-tips", !on);
+  try {
+    localStorage.setItem(TIPS_KEY, on ? "on" : "off");
+  } catch {
+    /* private mode */
+  }
+}
+
 /** A small "?" that explains a number: hover on desktop, tap on phones (the tap never triggers the card under it). */
 export function InfoDot({ text, className = "" }: { text: string; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -90,7 +108,7 @@ export function InfoDot({ text, className = "" }: { text: string; className?: st
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle(e)}
       onPointerEnter={(e) => e.pointerType === "mouse" && show()}
       onPointerLeave={(e) => e.pointerType === "mouse" && setOpen(false)}
-      className={`relative inline-flex h-6 w-6 shrink-0 cursor-help items-center justify-center rounded-full bg-[var(--border)] text-[11px] font-bold text-[var(--text-2)] outline-none ${className}`}
+      className={`info-dot relative inline-flex h-6 w-6 shrink-0 cursor-help items-center justify-center rounded-full bg-[var(--border)] text-[11px] font-bold text-[var(--text-2)] outline-none ${className}`}
     >
       ?
       {open && pos &&

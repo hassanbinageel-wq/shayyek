@@ -6,6 +6,7 @@ import { renderTemplate, claimsDelivery, claimsFollowRequired, contentLinkButton
 import { evaluateMatch } from "../../shared/match";
 import { AR_LABELS } from "../../shared/states";
 import { Alert, Card, Field, InfoDot, Modal, Spinner, Toggle, currentTz, toast, fmtTime } from "../components/ui";
+import { menuReady, type DmMenu } from "../../shared/menu";
 import { PhonePreview, type ChatMsg, type CommentMsg } from "../components/PhonePreview";
 import { localInputToUtc, utcToLocalInput } from "../lib/tzInput";
 import { Icon } from "../components/Icon";
@@ -51,6 +52,7 @@ type Form = {
   auto_new_media: boolean;
   auto_new_reels_only: boolean;
   auto_new_since: number | null;
+  send_menu: boolean;
 };
 
 const EMPTY: Form = {
@@ -72,6 +74,7 @@ const EMPTY: Form = {
   verify_error_text: "ما قدرنا نتحقق من المتابعة الآن ⏳ جرّب تكتب «تحقق» بعد شوي.",
   final_text: "تفضل 🎁 {{content_url}}",
   final_url: "",
+  send_menu: false,
   store_coupon: "",
   stock_action: "notify",
   utm: true,
@@ -178,6 +181,33 @@ function MediaPicker({ media, selected, onChange, onRefreshed, kind = "media" }:
   );
 }
 
+/** Content step: answer with the account's «القائمة التلقائية» (built in the inbox) instead of a content message. */
+function MenuChoice({ on, onChange, info }: { on: boolean; onChange: (v: boolean) => void; info: { menu: DmMenu; available: boolean } | null }) {
+  const root = info?.menu.root;
+  const ready = menuReady(info?.menu);
+  return (
+    <div className="surface-2 space-y-2 rounded-2xl p-3">
+      <Toggle
+        checked={on}
+        onChange={onChange}
+        label={<span className="inline-flex items-center gap-1.5">إرسال «القائمة التلقائية» بدل المحتوى<InfoDot text="لما يعلّق الشخص بكلمة الحملة (أو أي كلمة لو فعّلت «جميع التعليقات») يوصله في الخاص أول رسالة من القائمة التلقائية مع أزرارها، ويكمل يتنقل في التشجير بالضغط — بدون ما يحتاج يكتب في الخاص. نفس القائمة اللي تبنيها في «الرسائل ← القائمة التلقائية»." /></span>}
+        description="بدل رسالة المحتوى والرابط: يوصله التشجير اللي بنيته في الرسائل."
+      />
+      {on && info && !info.available && <Alert tone="warn">القائمة التلقائية غير متاحة في باقتك — بتنحفظ الحملة برسالة المحتوى.</Alert>}
+      {on && info && info.available && !ready && <Alert tone="warn">القائمة التلقائية فاضية. ابنها أول من «الرسائل ← القائمة التلقائية»، وإلى ذلك الحين تُرسل رسالة المحتوى الافتراضية.</Alert>}
+      {on && ready && (
+        <div className="text-sm">
+          <div className="muted text-xs">أول رسالة تنرسل:</div>
+          <div className="mt-1 whitespace-pre-line font-semibold">{root!.text}</div>
+          {root!.children.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1.5">{root!.children.map((c) => <span key={c.key} className="chip surface-2">{c.label}</span>)}</div>}
+        </div>
+      )}
+      {on && <a href="#/inbox?view=menu" className="inline-block text-sm font-semibold text-violet-600 underline dark:text-violet-300">تعديل القائمة التلقائية</a>}
+      {on && <p className="muted text-xs">ملاحظة: Meta تسمح برسالة خاصة واحدة لكل تعليق خلال 7 أيام؛ باقي التنقل يكمل لما يضغط الشخص زر من القائمة.</p>}
+    </div>
+  );
+}
+
 function KeywordEditor({ kind, keywords, onChange }: { kind: "include" | "exclude"; keywords: Keyword[]; onChange: (k: Keyword[]) => void }) {
   const [kw, setKw] = useState("");
   const [mt, setMt] = useState<Keyword["match_type"]>("contains");
@@ -241,6 +271,10 @@ export function CampaignWizard({ id }: { id: number | null }) {
   });
   const [sim, setSim] = useState<any>(null);
   const [storeItems, setStoreItems] = useState<any[]>([]);
+  const [menuInfo, setMenuInfo] = useState<{ menu: DmMenu; available: boolean } | null>(null);
+  useEffect(() => {
+    if (form.send_menu && !menuInfo) api("/api/dm-menu").then(setMenuInfo).catch(() => undefined);
+  }, [form.send_menu, menuInfo]);
 
   useEffect(() => {
     if (id) {
@@ -261,6 +295,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
             track_clicks: c.track_clicks === undefined ? true : !!c.track_clicks,
             follow_reminder_minutes: c.follow_reminder_minutes ?? 0,
             auto_new_media: !!c.auto_new_media,
+            send_menu: !!c.send_menu,
             auto_new_reels_only: !!c.auto_new_reels_only,
             auto_new_since: c.auto_new_since ?? null,
             schedule_start: c.schedule_start,
@@ -580,6 +615,8 @@ export function CampaignWizard({ id }: { id: number | null }) {
       case 8:
         return (
           <div className="space-y-4">
+            <MenuChoice on={form.send_menu} onChange={(v) => set("send_menu", v)} info={menuInfo} />
+            {!form.send_menu && <>
             <Field label="نص المحتوى النهائي" hint="استخدم {{content_url}} لموضع الرابط. يُخزّن على الخادم ولا يظهر قبل أهلية التسليم.">
               <textarea className="input" value={form.final_text} onChange={(e) => set("final_text", e.target.value)} />
               {templatePicker(form.type === "story_mention" ? "mention" : "final", "final_text")}
@@ -632,6 +669,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
               description="نضيف لآخر الرابط اسم المصدر (instagram) واسم الحملة، فتعرف من Google Analytics أو تقارير متجرك كم زائر وطلب جابت هذي الحملة — حتى اللي اشتروا بدون كود الخصم. المتابع يفتح نفس الصفحة بدون أي فرق. (حسب باقتك — إذا ما كانت تشملها ما تنضاف الوسوم)"
             />
             <div className="muted text-xs">المتغيرات المتاحة: {Object.entries(TEMPLATE_VARIABLES).map(([k, v]) => `{{${k}}} — ${v}`).join(" · ")}. مثال بديل: {"{{username|يا غالي}}"}</div>
+            </>}
           </div>
         );
       case 9:
@@ -720,7 +758,8 @@ export function CampaignWizard({ id }: { id: number | null }) {
           previews.push(["طلب المتابعة", strip(renderTemplate(form.follow_request_text, vars))]);
           previews.push(["تذكير", strip(renderTemplate(form.follow_reminder_text, vars))]);
         }
-        previews.push(["المحتوى النهائي", renderTemplate(form.final_text, { ...vars, content_url: link }) + (link && !form.final_text.includes("{{content_url}}") ? `\n${link}` : "")]);
+        if (form.send_menu) previews.push(["القائمة التلقائية", "يوصله أول رسالة من «القائمة التلقائية» مع خياراتها، ويكمل يتنقل فيها بالضغط."]);
+        else previews.push(["المحتوى النهائي", renderTemplate(form.final_text, { ...vars, content_url: link }) + (link && !form.final_text.includes("{{content_url}}") ? `\n${link}` : "")]);
         if (isComment && form.public_reply_enabled) previews.push([`الرد العام${publicVariants.length > 1 ? ` (1 من ${publicVariants.length} صيغ بالتناوب)` : ""}`, previewPublic]);
         return (
           <div className="space-y-4">
@@ -751,7 +790,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
           <div className="space-y-3">
             {quick && (
               <Field label="اسم الحملة (اختياري)" hint="اسم داخلي تشوفه أنت فقط.">
-                <input className="input" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={autoName} />
+                <input className="input" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="حملة ..." />
               </Field>
             )}
             {quick && (
@@ -812,7 +851,13 @@ export function CampaignWizard({ id }: { id: number | null }) {
   // The content link is delivered as a tappable button (Instagram does not open bare links in a first message).
   const contentBtn = contentLinkButton(contentText, form.final_url || null);
   const invite = !form.require_follow && form.follow_invite ? form.follow_invite_text.trim() || "ونسعد بمتابعتك لحسابنا 💜" : "";
-  const contentMsg = (note?: string): ChatMsg => ({
+  const root = menuInfo?.menu.root;
+  const contentMsg = (note?: string): ChatMsg => form.send_menu && root && menuReady(menuInfo?.menu) ? ({
+    from: "bot",
+    text: root.text,
+    buttons: [...(root.link ? [root.link.title] : []), ...root.children.map((c) => c.label)],
+    note,
+  }) : ({
     from: "bot",
     text: [contentBtn?.text ?? contentText, invite].filter(Boolean).join("\n\n"),
     buttons: [...(contentBtn ? [contentBtn.title] : []), ...(invite ? ["👤 تابعنا"] : [])],

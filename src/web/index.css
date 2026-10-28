@@ -271,3 +271,8 @@ textarea.input {
 .offer-tick { animation: offer-tick .35s ease-out; }
 .offer-tab { animation: offer-in .6s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .offer-in, .offer-card, .offer-shine, .offer-float, .offer-tick, .offer-tab { animation: none; } .offer-shine { display: none; } }
+
+/* Header switch: hide every "?" explanation. */
+html.hide-tips .info-dot {
+  display: none !important;
+}

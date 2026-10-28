@@ -11,6 +11,8 @@ export interface DomainInfo {
   expires_at: number | null;
   registrar: string | null;
   checked_at: number;
+  /** The dates come from the owner's settings (the registry has no RDAP record), not the registry. */
+  manual?: boolean;
   error?: string;
 }
 
@@ -69,7 +71,13 @@ export async function domainInfo(env: Env, now = Date.now(), force = false): Pro
       tried.push(`${new URL(u).hostname}: ${(e as Error).message.slice(0, 60)}`);
     }
   }
-  if (!info.expires_at) info.error = `تعذّر قراءة سجل الدومين (${tried.join("، ") || "بدون رد"})`;
+  if (!info.expires_at) {
+    const day = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? Date.parse(`${v}T00:00:00+03:00`) : null);
+    const exp = day(env.SERVICE_DOMAIN_EXPIRES);
+    info = exp
+      ? { name, registered_at: day(env.SERVICE_DOMAIN_REGISTERED), expires_at: exp, registrar: null, checked_at: now, manual: true }
+      : { ...info, error: `تعذّر قراءة سجل الدومين (${tried.join("، ") || "بدون رد"})` };
+  }
   await setSetting(env.DB, OWNER_TENANT, "domain_info", info, now);
   return info;
 }

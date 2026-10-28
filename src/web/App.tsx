@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type AnchorHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { api, setCsrf, setUnauthorizedHandler } from "./api";
 import { deviceToken, initNative, isNative, watchNetwork } from "./platform";
-import { Alert, Modal, Spinner, ToastHost, setTz, toast } from "./components/ui";
+import { Alert, Modal, Spinner, ToastHost, setTipsShown, setTz, tipsShown, toast } from "./components/ui";
 import { FEATURE_LABELS, type PlanLimits } from "../shared/plans";
 import { enableBio, takeBioOffer } from "./lib/biometric";
 import { Icon } from "./components/Icon";
@@ -14,6 +14,7 @@ import { AccountAvatar } from "./components/UserAvatar";
 import { LoginPage } from "./pages/Login";
 import { canOpenPage } from "../shared/staff";
 import { hasPerm, setMe } from "./lib/me";
+import { askConfirm } from "./components/Confirm";
 import { DashboardPage } from "./pages/Dashboard";
 import { CampaignsPage } from "./pages/Campaigns";
 
@@ -142,6 +143,11 @@ const MOBILE_TABS = ["/", "/campaigns", "/inbox"];
 export function App() {
   const route = useRoute();
   const [theme, setTheme] = useTheme();
+  const [tips, setTips] = useState(() => {
+    const on = tipsShown();
+    document.documentElement.classList.toggle("hide-tips", !on);
+    return on;
+  });
   const [auth, setAuth] = useState<"loading" | "in" | "out">("loading");
   const [username, setUsername] = useState("");
   const [isOwner, setIsOwner] = useState(false);
@@ -275,6 +281,7 @@ export function App() {
   if (auth === "out") return <LoginPage onDone={checkAuth} />;
 
   const logout = async () => {
+    if (!(await askConfirm({ title: "تسجيل الخروج من حسابك؟", confirmLabel: "خروج", cancelLabel: "إلغاء", danger: true }))) return;
     await api("/api/auth/logout", { method: "POST", body: {} }).catch(() => undefined);
     await deviceToken.clear();
     setCsrf(null);
@@ -439,6 +446,9 @@ export function App() {
           <div className="mr-auto flex items-center gap-2">
             <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)]" title="المظهر" aria-label="تبديل المظهر" onClick={() => setTheme(nextTheme)}>
               <Icon name={themeIcon} size={18} />
+            </button>
+            <button className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] ${tips ? "bg-violet-500/10 text-violet-600 dark:text-violet-300" : "bg-[var(--surface)] text-[var(--text-2)]"}`} title={tips ? "إخفاء الشروحات (?)" : "إظهار الشروحات (?)"} aria-label="إظهار أو إخفاء الشروحات" aria-pressed={tips} onClick={() => { setTipsShown(!tips); setTips(!tips); toast(tips ? "أخفينا الشروحات (?)" : "الشروحات (?) ظاهرة"); }}>
+              <Icon name="help" size={18} />
             </button>
             <NotificationBell route={route} onAlert={() => { setFlash(true); setTimeout(() => setFlash(false), 5000); }} />
             <button className="hidden items-center gap-2 rounded-xl px-1.5 py-1 hover:bg-[var(--surface-2)] sm:flex" onClick={logout} title="تسجيل الخروج">

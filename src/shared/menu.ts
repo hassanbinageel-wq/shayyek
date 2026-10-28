@@ -69,6 +69,9 @@ export const emptyMenu = (): DmMenu => ({
 /** Most options a node may have with its display style (a link button uses one of the 3 template slots). */
 export const maxOptions = (n: Pick<MenuNode, "style" | "link">) => (n.style === "quick" ? MENU_LIMITS.quick : MENU_LIMITS.buttons - (n.link ? 1 : 0));
 
+/** A menu a campaign can send: its first message has text and at least one option or link. */
+export const menuReady = (m: DmMenu | null | undefined): m is DmMenu => !!m?.root?.text?.trim() && (m.root.children.length > 0 || !!m.root.link);
+
 /** Finds a node by key anywhere in the tree. */
 export function findNode(root: MenuNode, key: string): MenuNode | null {
   if (root.key === key) return root;

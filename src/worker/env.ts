@@ -38,6 +38,9 @@ export interface Env {
   MOYASAR_SECRET_KEY?: string;
   /** The service's own domain (e.g. hsnreply.online), for its expiry date. */
   SERVICE_DOMAIN?: string;
+  /** Its registration / expiry dates (YYYY-MM-DD) from the registrar, for registries without RDAP. */
+  SERVICE_DOMAIN_REGISTERED?: string;
+  SERVICE_DOMAIN_EXPIRES?: string;
 }
 
 export const REQUIRED_SECRETS = [

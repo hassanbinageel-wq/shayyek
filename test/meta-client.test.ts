@@ -61,6 +61,27 @@ describe("private reply with a button", () => {
   });
 });
 
+describe("private reply with the DM menu (campaign «القائمة التلقائية»)", () => {
+  const menuMsg = { text: "اختر:", menu: { style: "buttons" as const, options: [{ title: "الأسعار", payload: "hsn:menu:price001" }, { title: "التغطية", payload: "hsn:menu:areas001" }], link: null } };
+  it("sends a button template with the options to the comment", async () => {
+    const { f, calls } = fakeFetch([{ status: 200, body: { message_id: "m1" } }]);
+    expect((await client(f).sendPrivateReply("t", "ig1", "c1", menuMsg)).ok).toBe(true);
+    expect(calls[0].body.recipient).toEqual({ comment_id: "c1" });
+    expect(calls[0].body.message.attachment.payload.buttons).toEqual([
+      { type: "postback", title: "الأسعار", payload: "hsn:menu:price001" },
+      { type: "postback", title: "التغطية", payload: "hsn:menu:areas001" },
+    ]);
+  });
+  it("rejected template → text with chips → rejected again → plain text listing the options", async () => {
+    const bad = { status: 400, body: { error: { code: 100, message: "Invalid parameter" } } };
+    const { f, calls } = fakeFetch([bad, bad, { status: 200, body: { message_id: "m2" } }]);
+    expect((await client(f).sendPrivateReply("t", "ig1", "c1", menuMsg)).ok).toBe(true);
+    expect(calls).toHaveLength(3);
+    expect(calls[1].body.message.quick_replies[0]).toMatchObject({ title: "الأسعار", payload: "hsn:menu:price001" });
+    expect(calls[2].body).toEqual({ recipient: { comment_id: "c1" }, message: { text: "اختر:\n• الأسعار\n• التغطية" } });
+  });
+});
+
 describe("content link as a tappable button", () => {
   const link = { text: "رابط الكتيب جاهز\nhttps://example.com/x", linkButton: { title: "فتح الرابط 🔗", url: "https://example.com/x", text: "رابط الكتيب جاهز" } };
 

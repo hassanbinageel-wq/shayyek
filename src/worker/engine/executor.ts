@@ -21,8 +21,8 @@ import {
   type ParticipantRow,
 } from "./context";
 import { buttonPayload, processEvent, type EventRow } from "./events";
-import { loadMenu, menuMessage } from "./menu";
-import { findNode, menuParts } from "../../shared/menu";
+import { campaignMenuOn, loadMenu, menuMessage } from "./menu";
+import { findNode, menuParts, menuReady } from "../../shared/menu";
 import {
   AUTO_RECHECK,
   AUTO_RECHECK_DELAY_MS,
@@ -501,7 +501,13 @@ async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): 
 
   // Campaign tags (UTM) on the content link only where the plan includes them.
   if (isContent && l.campaign.utm !== 0 && !l.flow.is_demo && !(await getEntitlement(ctx.db, l.account.tenant_id, ctx.now())).limits.utm) l.campaign = { ...l.campaign, utm: 0 };
-  const msg = buildMessage(purpose, l, channel);
+  let msg = buildMessage(purpose, l, channel);
+  // «القائمة التلقائية» instead of the content message (falls back to the content if the menu is empty or not in the plan).
+  if (isContent && l.campaign.send_menu && !(l.campaign.stock_out_at && l.campaign.stock_action === "waitlist")) {
+    const menu = await loadMenu(ctx.db, l.account.tenant_id);
+    const ent = await getEntitlement(ctx.db, l.account.tenant_id, ctx.now());
+    if (menuReady(menu) && (ent.owner || ent.limits.dm_menu || l.flow.is_demo === 1)) msg = menuMessage(menu.root);
+  }
   if (isContent && msg.linkButton) await trackLink(ctx, l, msg);
   const token = await ctx.getAccessToken(l.account);
   if (!token) {
@@ -520,7 +526,7 @@ async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): 
   if (r.ok) {
     await recordAttempt(ctx.db, job, started, now, "accepted", { httpStatus: r.httpStatus });
     if (!l.flow.is_demo) await countMessage(ctx.db, l.account.tenant_id, now);
-    await finishJob(ctx.db, job, owner, "accepted", now, { result: { message_id: r.data.message_id, channel, text: l.flow.is_demo ? msg.text : undefined, quick_replies: l.flow.is_demo ? msg.quickReplies : undefined, link_button: l.flow.is_demo ? msg.linkButton : undefined, account_button: l.flow.is_demo ? msg.accountButton : undefined } });
+    await finishJob(ctx.db, job, owner, "accepted", now, { result: { message_id: r.data.message_id, channel, text: l.flow.is_demo ? msg.text : undefined, quick_replies: l.flow.is_demo ? msg.quickReplies : undefined, link_button: l.flow.is_demo ? msg.linkButton : undefined, account_button: l.flow.is_demo ? msg.accountButton : undefined, menu: l.flow.is_demo ? msg.menu : undefined } });
     if (channel === "private_reply") {
       await run(ctx.db, "UPDATE conversation_flows SET private_reply_status = 'accepted', updated_at = ? WHERE id = ?", now, l.flow.id);
       l.flow.private_reply_status = "accepted";
@@ -531,7 +537,7 @@ async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): 
       direction: "out",
       source: "bot",
       kind: channel === "private_reply" ? "private_reply" : purpose,
-      text: msg.linkButton ? `${msg.linkButton.text}\n[${msg.linkButton.title}]` : msg.text,
+      text: msg.linkButton ? `${msg.linkButton.text}\n[${msg.linkButton.title}]` : msg.menu ? [msg.text, msg.menu.link ? `[${msg.menu.link.title}]` : "", ...msg.menu.options.map((o) => `• ${o.title}`)].filter(Boolean).join("\n") : msg.text,
       mid: r.data.message_id ?? null,
       isDemo: l.flow.is_demo === 1,
       at: now,
@@ -665,7 +671,8 @@ async function execMenuSend(ctx: EngineContext, job: JobRow, owner: string): Pro
   if (account.status !== "active" || account.tenant_status !== "active") return cancel("account not active");
   const menu = await loadMenu(ctx.db, account.tenant_id);
   const parts = menuParts(menu);
-  const node = (p.root ? parts.auto : parts.auto || parts.ice || parts.persistent) && p.node ? findNode(menu!.root, p.node) : null;
+  const on = p.root ? parts.auto : parts.auto || parts.ice || parts.persistent || (await campaignMenuOn(ctx.db, account.tenant_id));
+  const node = on && p.node ? findNode(menu!.root, p.node) : null;
   if (!node) return cancel("menu off or option removed");
   let now = ctx.now();
   if (!windowOpen(participant, now)) {

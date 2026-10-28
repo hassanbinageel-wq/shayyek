@@ -20,13 +20,18 @@ export async function loadMenu(db: D1Database, tenantId: number): Promise<DmMenu
   return getSetting<DmMenu | null>(db, tenantId, "dm_menu", null);
 }
 
+/** An active campaign of this customer answers comments with the menu, so taps on its options must be answered. */
+export async function campaignMenuOn(db: D1Database, tenantId: number): Promise<boolean> {
+  return !!(await first<{ x: number }>(db, "SELECT 1 AS x FROM campaigns WHERE tenant_id = ? AND send_menu = 1 AND status = 'active' AND deleted_at IS NULL LIMIT 1", tenantId));
+}
+
 /**
  * Why the menu may not answer this person now (null = it may). A message needs the automatic menu switched on; a
  * tap is answered while any part (automatic menu, ice breakers, persistent menu) is on.
  */
 async function blocked(ctx: EngineContext, account: AccountRow, participant: ParticipantRow, menu: DmMenu | null, tap = false): Promise<string | null> {
   const parts = menuParts(menu);
-  if (tap ? !(parts.auto || parts.ice || parts.persistent) : !parts.auto) return "menu_off";
+  if (tap ? !(parts.auto || parts.ice || parts.persistent || (await campaignMenuOn(ctx.db, account.tenant_id))) : !parts.auto) return "menu_off";
   const ent = await getEntitlement(ctx.db, account.tenant_id, ctx.now());
   if (!ent.owner && !(ent.active && ent.limits.dm_menu)) return "menu_not_in_plan";
   if (!account.is_demo && ent.limits.monthly_messages !== null && (await monthlyMessages(ctx.db, account.tenant_id, ctx.now())) >= ent.limits.monthly_messages) return "monthly_limit_reached";

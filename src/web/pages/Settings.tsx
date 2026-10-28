@@ -4,21 +4,18 @@ import { AccountEmailCard } from "../components/AccountEmail";
 import { ChangePasswordCard } from "../components/ChangePassword";
 import { isStaff } from "../lib/me";
 import { askText } from "../components/Confirm";
-import { api, download } from "../api";
+import { api } from "../api";
 import { APP_VERSION, isNative } from "../platform";
 import { Link } from "../App";
 import { NotificationsCard } from "../components/NotificationsCard";
 import { Icon } from "../components/Icon";
-import { Alert, Card, PageHeader, Spinner, Toggle, setTz, toast, useAsync } from "../components/ui";
+import { Alert, Card, InfoDot, PageHeader, Spinner, Toggle, setTz, toast, useAsync } from "../components/ui";
 import { bioUser, disableBio } from "../lib/biometric";
 
 const SECTIONS: Array<[string, string, string, string]> = [
   ["general", "عام", "settings", "المنطقة الزمنية وحماية التكرار واسترجاع التعليقات"],
   ["notifications", "الإشعارات", "send", "تيليجرام والتقارير والتنبيهات"],
-  ["security", "الحساب والأمان", "lock", "الإيميل وكلمة المرور والتحقق بخطوتين والأجهزة"],
-  ["privacy", "الخصوصية والاحتفاظ", "shield", "مدة حفظ السجلات وحذف البيانات"],
-  ["backup", "النسخ الاحتياطي", "download", "تنزيل الإعدادات والحملات أو استعادتها"],
-  ["appearance", "المظهر", "sun", "فاتح، داكن، أو تلقائي"],
+  ["security", "الحساب والأمان", "lock", "الإيميل وكلمة المرور والتحقق بخطوتين والأجهزة وحذف البيانات"],
 ];
 const SECTION_IDS = SECTIONS.map(([id]) => id);
 
@@ -58,7 +55,7 @@ function StaffSettings({ onLogout, username }: SettingsProps) {
   );
 }
 
-function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) {
+function HolderSettings({ onLogout, username }: SettingsProps) {
   const { data, loading, reload } = useAsync(() => api("/api/settings"), []);
   const [s, setS] = useState<any>(null);
   // One section at a time; the choice is kept in the address (#/settings?tab=security) and for next time.
@@ -112,16 +109,6 @@ function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) 
     }
   };
 
-  const restore = async (file: File) => {
-    try {
-      const body = JSON.parse(await file.text());
-      const r = await api<{ campaigns: number; note: string }>("/api/settings/restore", { body });
-      toast(`تمت استعادة ${r.campaigns} حملة — ${r.note}`);
-    } catch (e: any) {
-      toast(e.message ?? "ملف غير صالح", "bad");
-    }
-  };
-
   const del = async (scope: string, label: string) => {
     const c = await askText({ title: `${label}؟`, message: "ما يمكن التراجع عن الحذف.", label: "للتأكيد اكتب DELETE", expect: "DELETE", confirmLabel: label, danger: true });
     if (c !== "DELETE") return;
@@ -143,20 +130,12 @@ function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const section = SECTIONS.find(([id]) => id === active)!;
-  const themeSeg = (
-    <div className="seg">
-      {[["light", "فاتح"], ["dark", "داكن"], ["system", "تلقائي"]].map(([k, v]) => (
-        <button key={k} className={theme === k ? "on" : ""} onClick={() => setTheme(k)}>{v}</button>
-      ))}
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold leading-tight sm:text-[26px]">الإعدادات</h1>
-          <p className="muted mt-1 text-sm">تحكم بسلوك النظام والإشعارات والخصوصية · مسجّل كـ {username}</p>
+          <p className="muted mt-1 text-sm">تحكم بسلوك النظام والإشعارات والحساب · مسجّل كـ {username}</p>
         </div>
         <button className="btn btn-primary" onClick={save} disabled={!dirty}>
           <Icon name="check" size={18} />{dirty ? "حفظ التغييرات" : "لا توجد تغييرات"}
@@ -194,19 +173,19 @@ function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) 
                     <input className="input !w-48" dir="ltr" value={s.timezone} onChange={(e) => edit({ timezone: e.target.value })} aria-label="المنطقة الزمنية" />
                   )}
                 </Row>
-                <Row label="حد المسارات لكل شخص في الساعة" hint="حماية من التكرار عبر كل الحملات (0 = بلا حد)">
+                <Row label={<span className="inline-flex items-center gap-1.5">حد المسارات لكل شخص في الساعة<InfoDot text="المسار = رد تلقائي كامل يبدأ لما الشخص يعلّق أو يرد على ستوري. هذا الحد يمنع نفس الشخص من تشغيل أكثر من هذا العدد خلال ساعة عبر كل حملاتك (مثلًا لو علّق 20 مرة). يحمي حسابك من التكرار اللي يشبه الرسائل المزعجة. 0 = بدون حد." /></span>} hint="حماية من التكرار عبر كل الحملات (0 = بلا حد)">
                   <input className="input !w-24 text-center" type="number" min={0} value={s.global_user_hourly_limit} onChange={(e) => edit({ global_user_hourly_limit: e.target.value })} aria-label="حد المسارات في الساعة" />
                 </Row>
                 <Toggle
                   checked={!!s.any_reply_counts_as_start}
                   onChange={(v) => edit({ any_reply_counts_as_start: v })}
-                  label="أي رد يُعد «ابدأ»"
+                  label={<span className="inline-flex items-center gap-1.5">أي رد يُعد «ابدأ»<InfoDot text="في الحملات اللي تطلب من الشخص يرد في الخاص قبل ما يوصله المحتوى: لو مفعّل، أي رد منه (حتى «تم» أو إيموجي) يكمّل المسار. لو مطفأ، لازم يكتب «ابدأ» بالضبط. وينطبق نفس الشيء على «تحقق» في دعوة المتابعة." /></span>}
                   description="يكمل المسار حتى لو ما كتب «ابدأ» بالضبط"
                 />
                 <Toggle
                   checked={s.auto_recover_comments !== false}
                   onChange={(v) => edit({ auto_recover_comments: v })}
-                  label="استرجاع التعليقات الفائتة"
+                  label={<span className="inline-flex items-center gap-1.5">استرجاع التعليقات الفائتة<InfoDot text="أحيانًا ما توصلنا بعض التعليقات من Meta. كل ساعة يراجع النظام تعليقات منشورات حملاتك النشطة في آخر 7 أيام، ويرد على اللي فاتت حسب قواعد الحملة، بدون تكرار على من سبق الرد عليه. Meta تسمح بالرد الخاص على التعليق خلال 7 أيام فقط." /></span>}
                   description="كل ساعة، خلال 7 أيام (التعليقات اللي ما وصلت من Meta)"
                 />
               </div>
@@ -215,48 +194,6 @@ function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) 
 
           {active === "notifications" && <section id="set-notifications" className="max-w-3xl">
             <NotificationsCard />
-          </section>}
-
-          {active === "privacy" && <section id="set-privacy" className="max-w-3xl">
-            <Card title="الخصوصية والاحتفاظ" className="h-full">
-              <div className="divide-y divide-[var(--border)]">
-                <Row label="الاحتفاظ بالسجلات (أيام)" hint="بعدها تُمسح النصوص والبيانات الشخصية">
-                  <input className="input !w-24 text-center" type="number" min={7} value={s.retention_days} onChange={(e) => edit({ retention_days: e.target.value })} aria-label="مدة الاحتفاظ بالسجلات" />
-                </Row>
-                <Row label="مفاتيح منع التكرار (أيام)" hint="لا تقل عن 8 أيام حتى لا يتكرر الرد على إعادة إرسال Meta">
-                  <input className="input !w-24 text-center" type="number" min={8} value={s.dedup_retention_days} onChange={(e) => edit({ dedup_retention_days: e.target.value })} aria-label="مدة مفاتيح منع التكرار" />
-                </Row>
-                <div className="space-y-3 pt-4">
-                  <Alert tone="warn">الحذف نهائي ولا يمكن استرجاعه من السجل. مفاتيح منع التكرار للإجراءات المعلّقة تبقى لحماية الناس من الرسائل المكررة.</Alert>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-ghost text-sm" onClick={() => del("demo", "حذف بيانات التجربة")}>حذف بيانات التجربة</button>
-                    <button className="btn btn-ghost text-sm" onClick={() => del("logs", "مسح نصوص السجلات")}>مسح نصوص السجلات</button>
-                    <button className="btn btn-danger text-sm" onClick={() => del("all_personal", "حذف كل البيانات الشخصية")}>حذف كل البيانات الشخصية</button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </section>}
-
-          {active === "backup" && <section id="set-backup" className="max-w-3xl">
-            <Card title="النسخ الاحتياطي" action={<span className="chip surface-2 muted">بدون أسرار</span>} className="h-full">
-              <p className="muted mb-4 text-sm">يشمل الإعدادات والحملات والقوالب فقط. لا يشمل التوكنات أو كلمات المرور أو بيانات المتفاعلين.</p>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn btn-ghost" onClick={() => download("/api/settings/backup", `shayyek-backup.json`).catch((e) => toast(e.message, "bad"))}>
-                  <Icon name="download" size={17} />تنزيل نسخة احتياطية
-                </button>
-                <label className="btn btn-ghost cursor-pointer">
-                  <Icon name="upload" size={17} />استعادة من ملف
-                  <input type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && restore(e.target.files[0])} />
-                </label>
-              </div>
-            </Card>
-          </section>}
-
-          {active === "appearance" && <section id="set-appearance" className="max-w-3xl">
-            <Card title="المظهر" className="h-full">
-              <Row label="الوضع" hint="«تلقائي» يتبع إعداد جهازك">{themeSeg}</Row>
-            </Card>
           </section>}
 
           {active === "security" && <section id="set-security" className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">
@@ -275,6 +212,15 @@ function HolderSettings({ theme, setTheme, onLogout, username }: SettingsProps) 
               <div className="muted mt-4 border-t border-[var(--border)] pt-4 text-sm">
                 الإصدار: واجهة <b>{APP_VERSION}</b> ({isNative ? "Android" : "ويب/PWA"}) · خادم <b>{data.app_version}</b>
                 <Link to="/download" className="mr-2 font-semibold text-violet-600 underline dark:text-violet-300">تنزيل أحدث APK</Link>
+              </div>
+            </Card>
+            {/* The privacy policy, terms and Meta's data-deletion page promise this from the settings. */}
+            <Card title="حذف البيانات" className="h-full">
+              <Alert tone="warn">الحذف نهائي ولا يمكن استرجاعه من السجل. مفاتيح منع التكرار للإجراءات المعلّقة تبقى لحماية الناس من الرسائل المكررة.</Alert>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="btn btn-ghost text-sm" onClick={() => del("demo", "حذف بيانات التجربة")}>حذف بيانات التجربة</button>
+                <button className="btn btn-ghost text-sm" onClick={() => del("logs", "مسح نصوص السجلات")}>مسح نصوص السجلات</button>
+                <button className="btn btn-danger text-sm" onClick={() => del("all_personal", "حذف كل البيانات الشخصية")}>حذف كل البيانات الشخصية</button>
               </div>
             </Card>
           </section>}

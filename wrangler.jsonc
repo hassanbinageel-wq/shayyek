@@ -42,7 +42,10 @@
     "META_API_VERIFIED_AT": "2026-09-25",
     "PUBLIC_BASE_URL": "https://hsn-autoreply.YOUR-SUBDOMAIN.workers.dev",
     // The service's own domain (expiry date shown on the owner's usage page).
-    "SERVICE_DOMAIN": "hsnreply.online",
+    "SERVICE_DOMAIN": "shayyek.sa",
+    // Its dates from the registrar's page, used when the registry has no RDAP record (.sa has none). Update on renewal.
+    "SERVICE_DOMAIN_REGISTERED": "2026-10-22",
+    "SERVICE_DOMAIN_EXPIRES": "2027-10-22",
     // Sender of password-recovery emails (the domain is verified in Resend).
     "EMAIL_FROM": "شيّك Shayyek <no-reply@shayyek.sa>",
     "EMAIL_FROM_FALLBACK": "شيّك Shayyek <no-reply@hsnreply.online>",

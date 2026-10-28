@@ -86,8 +86,8 @@ function DomainCard({ d }: { d: any }) {
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-1 font-semibold">الدومين <span dir="ltr">{d.name}</span><InfoDot text="من سجل الدومين الرسمي (RDAP). إذا انتهى الدومين يتوقف الموقع والتطبيق والردود — يوصلك تنبيه قبلها بـ 30 يوم." /></div>
-          <div className="muted text-xs">{d.registrar ? `المسجّل: ${d.registrar}` : ""}{d.registered_at ? ` · مسجّل من ${fmtDate(d.registered_at)}` : ""}</div>
+          <div className="flex items-center gap-1 font-semibold">الدومين <span dir="ltr">{d.name}</span><InfoDot text={d.manual ? `سجّلنا الدومين يوم ${d.registered_at ? fmtDate(d.registered_at) : "22 أكتوبر 2026"}، لذلك الأيام الباقية أقل شوي من الدومين القديم. التاريخ من صفحة المسجّل (دومينات ‎.sa ما لها سجل RDAP عام)، ويتحدّث عند التجديد. إذا انتهى الدومين يتوقف الموقع والتطبيق والردود — يوصلك تنبيه قبلها بـ 30 يوم.` : "من سجل الدومين الرسمي (RDAP). إذا انتهى الدومين يتوقف الموقع والتطبيق والردود — يوصلك تنبيه قبلها بـ 30 يوم."} /></div>
+          <div className="muted text-xs">{[d.registrar ? `المسجّل: ${d.registrar}` : "", d.registered_at ? `مسجّل من ${fmtDate(d.registered_at)}` : ""].filter(Boolean).join(" · ")}</div>
         </div>
         {left !== null ? (
           <div className="text-left">

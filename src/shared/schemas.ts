@@ -71,6 +71,8 @@ export const campaignInputSchema = z
     stock_action: z.enum(["notify", "pause", "waitlist"]).optional(),
     out_of_stock_text: z.string().trim().max(1000).nullable().optional(),
     store_coupon: z.string().trim().max(60).regex(/^[A-Za-z0-9_-]*$/, "كود الخصم: حروف إنجليزية وأرقام فقط").nullable().optional(),
+    /** Answer with the account's DM menu (the tree built in «الرسائل ← القائمة التلقائية») instead of the content message. */
+    send_menu: z.boolean().default(false),
   })
   .superRefine((c, ctx) => {
     if (!c.match_all && !c.keywords.some((k) => k.kind === "include") && c.type !== "story_mention") {
@@ -79,7 +81,7 @@ export const campaignInputSchema = z
     if (c.scope === "selected" && c.media_ids.length === 0 && !(c.type === "comment" && (c.auto_new_media || c.for_scheduled_post))) {
       ctx.addIssue({ code: "custom", path: ["media_ids"], message: "اختر منشورًا أو ستوري واحدة على الأقل" });
     }
-    if (!c.final_text.trim() && !c.final_url) {
+    if (!c.send_menu && !c.final_text.trim() && !c.final_url) {
       ctx.addIssue({ code: "custom", path: ["final_text"], message: "حدد المحتوى النهائي (نص أو رابط)" });
     }
     if (c.type !== "comment" && c.public_reply_enabled) {

@@ -67,6 +67,8 @@ export interface CampaignRow {
   out_of_stock_text?: string | null;
   stock_out_at?: number | null;
   utm?: number;
+  /** 1 = the content message is the account's DM menu. */
+  send_menu?: number;
   public_reply_enabled: number;
   public_reply_text: string | null;
   public_reply_on_dm_fail: "none" | "fallback";

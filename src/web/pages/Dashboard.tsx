@@ -212,7 +212,7 @@ export function DashboardPage() {
             </div>
           )}
         </Card>
-        <Card title="آخر النشاطات" action={<Link to="/logs" className="btn btn-ghost min-h-9 px-3 text-xs">السجل</Link>}>
+        <Card title="آخر النشاطات">
           {!(d.recent as any[])?.length ? (
             <p className="muted py-6 text-center text-sm">لا يوجد نشاط بعد.</p>
           ) : (

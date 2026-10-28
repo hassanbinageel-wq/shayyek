@@ -352,6 +352,12 @@ export class HttpMetaClient implements MetaClient {
     const url = `${this.graphBase}/${encodeURIComponent(igUserId)}/messages`;
     const textOnly = () =>
       this.request<{ message_id?: string }>(url, this.authJson(token, { recipient: { comment_id: commentId }, message: { text: msg.text } }), true);
+    if (msg.menu) {
+      const m = msg.menu;
+      const listed = [msg.text, m.link?.url ?? "", ...m.options.map((o) => `• ${o.title}`)].filter(Boolean).join("\n").slice(0, 1000);
+      const plain = () => this.request<{ message_id?: string }>(url, this.authJson(token, { recipient: { comment_id: commentId }, message: { text: listed } }), true);
+      return this.sendMenu(token, url, { comment_id: commentId }, msg, plain);
+    }
     if (msg.linkButton) return this.sendLinkButton(token, url, { comment_id: commentId }, msg.linkButton, textOnly, msg.accountButton);
     if (msg.accountButton) return this.sendAccountButtons(token, url, { comment_id: commentId }, msg, textOnly);
     if (!msg.quickReplies?.length) return textOnly();
@@ -396,14 +402,19 @@ export class HttpMetaClient implements MetaClient {
   /**
    * DM menu message. «buttons»: one button template (link button first, then postback options; at most 3 buttons,
    * text ≤ 640). «quick»: text with up to 13 quick-reply chips (the link, if any, goes in the text). A template that
-   * Meta rejects definitively is re-sent once as text with chips — never after an uncertain outcome.
+   * Meta rejects definitively is re-sent once as text with chips — never after an uncertain outcome. A private reply
+   * (Meta documents only text there) gets one more step: plain text with the options listed.
    */
-  private async sendMenu(token: string, url: string, recipient: Record<string, string>, msg: OutgoingMessage) {
+  private async sendMenu(token: string, url: string, recipient: Record<string, string>, msg: OutgoingMessage, plainText?: () => Promise<MetaResult<{ message_id?: string }>>) {
     const m = msg.menu!;
     const chips = m.options.slice(0, 13).map((o) => ({ content_type: "text", title: o.title.slice(0, 20), payload: o.payload }));
     const withLink = m.link ? `${msg.text}\n${m.link.url}` : msg.text;
-    const asText = () =>
-      this.request<{ message_id?: string }>(url, this.authJson(token, { recipient, message: { text: withLink.slice(0, 1000), ...(chips.length ? { quick_replies: chips } : {}) } }), true);
+    const chipsText = async () => {
+      const r = await this.request<{ message_id?: string }>(url, this.authJson(token, { recipient, message: { text: withLink.slice(0, 1000), ...(chips.length ? { quick_replies: chips } : {}) } }), true);
+      if (plainText && !r.ok && (r.error.kind === "permanent" || r.error.kind === "permission")) return plainText();
+      return r;
+    };
+    const asText = chips.length || !plainText ? chipsText : plainText;
     if (m.style === "quick" || (!m.options.length && !m.link)) return asText();
     const buttons = [
       ...(m.link ? [{ type: "web_url", url: m.link.url, title: m.link.title.slice(0, 20) }] : []),
