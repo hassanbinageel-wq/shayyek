@@ -19,6 +19,22 @@ export const keywordSchema = z.object({
   match_type: z.enum(["exact", "word", "contains"]),
 });
 
+/** Deliveries of a campaign's content to the same person: 1 or 2. Older data: 0 (= no limit) and larger values → 2. */
+export const MAX_DELIVERIES_CAP = 2;
+export const clampDeliveries = (v: number) => (!(v >= 1) ? MAX_DELIVERIES_CAP : Math.min(MAX_DELIVERIES_CAP, Math.trunc(v)));
+
+type MenuNodeIn = { key: string; label: string; text: string; link?: { title: string; url: string } | null; style: "buttons" | "quick"; children: MenuNodeIn[] };
+const menuNodeSchema: z.ZodType<MenuNodeIn> = z.lazy(() =>
+  z.object({
+    key: z.string().regex(/^[A-Za-z0-9]{4,16}$/),
+    label: z.string().trim().max(20),
+    text: z.string().trim().max(640),
+    link: z.object({ title: z.string().trim().max(20), url: z.string().trim().max(500) }).nullable().optional(),
+    style: z.enum(["buttons", "quick"]),
+    children: z.array(menuNodeSchema).max(13),
+  }),
+);
+
 export const campaignInputSchema = z
   .object({
     name: text(120).min(1),
@@ -54,7 +70,8 @@ export const campaignInputSchema = z
     schedule_end: z.number().int().nullable().optional(),
     timezone: text(64).default("Asia/Riyadh"),
     per_user_cooldown_hours: z.number().int().min(0).max(24 * 365).default(24),
-    max_deliveries_per_user: z.number().int().min(0).max(100).default(1),
+    // Always on, at most twice per person per campaign (older values are brought into 1–2).
+    max_deliveries_per_user: z.number().int().min(0).max(100).default(1).transform(clampDeliveries),
     max_verify_attempts: z.number().int().min(1).max(50).default(5),
     verify_cooldown_seconds: z.number().int().min(5).max(86_400).default(10),
     process_old_events: z.boolean().default(false),
@@ -71,8 +88,9 @@ export const campaignInputSchema = z
     stock_action: z.enum(["notify", "pause", "waitlist"]).optional(),
     out_of_stock_text: z.string().trim().max(1000).nullable().optional(),
     store_coupon: z.string().trim().max(60).regex(/^[A-Za-z0-9_-]*$/, "كود الخصم: حروف إنجليزية وأرقام فقط").nullable().optional(),
-    /** Answer with the account's DM menu (the tree built in «الرسائل ← القائمة التلقائية») instead of the content message. */
+    /** «قائمة تفاعلية»: the matching comment gets this campaign's own menu (`menu_root`) instead of a content message. */
     send_menu: z.boolean().default(false),
+    menu_root: menuNodeSchema.nullable().optional(),
   })
   .superRefine((c, ctx) => {
     if (!c.match_all && !c.keywords.some((k) => k.kind === "include") && c.type !== "story_mention") {
@@ -80,6 +98,9 @@ export const campaignInputSchema = z
     }
     if (c.scope === "selected" && c.media_ids.length === 0 && !(c.type === "comment" && (c.auto_new_media || c.for_scheduled_post))) {
       ctx.addIssue({ code: "custom", path: ["media_ids"], message: "اختر منشورًا أو ستوري واحدة على الأقل" });
+    }
+    if (c.send_menu && !c.menu_root) {
+      ctx.addIssue({ code: "custom", path: ["menu_root"], message: "ابنِ القائمة التفاعلية (الرسالة الأولى وزر واحد على الأقل)" });
     }
     if (!c.send_menu && !c.final_text.trim() && !c.final_url) {
       ctx.addIssue({ code: "custom", path: ["final_text"], message: "حدد المحتوى النهائي (نص أو رابط)" });
@@ -190,17 +211,6 @@ export const planUpdateSchema = z.object({
   }),
 });
 
-type MenuNodeIn = { key: string; label: string; text: string; link?: { title: string; url: string } | null; style: "buttons" | "quick"; children: MenuNodeIn[] };
-const menuNodeSchema: z.ZodType<MenuNodeIn> = z.lazy(() =>
-  z.object({
-    key: z.string().regex(/^[A-Za-z0-9]{4,16}$/),
-    label: z.string().trim().max(20),
-    text: z.string().trim().max(640),
-    link: z.object({ title: z.string().trim().max(20), url: z.string().trim().max(500) }).nullable().optional(),
-    style: z.enum(["buttons", "quick"]),
-    children: z.array(menuNodeSchema).max(13),
-  }),
-);
 /** The customer's DM menu (deeper checks: menuProblem). */
 export const dmMenuSchema = z.object({
   enabled: z.boolean(),

@@ -1,6 +1,6 @@
 import { matchKeyword } from "../../shared/match";
 import { normalizeText } from "../../shared/normalize";
-import { findNode, MENU_PAYLOAD, menuParts, menuPayload, type DmMenu, type MenuNode } from "../../shared/menu";
+import { CAMPAIGN_MENU_PAYLOAD, campaignMenuPayload, findNode, MENU_PAYLOAD, menuParts, menuPayload, parseMenuRoot, type DmMenu, type MenuNode } from "../../shared/menu";
 import { first, getSetting, run } from "../lib/db";
 import type { OutgoingMessage } from "../meta/types";
 import { getEntitlement, monthlyMessages } from "../services/plans";
@@ -20,9 +20,40 @@ export async function loadMenu(db: D1Database, tenantId: number): Promise<DmMenu
   return getSetting<DmMenu | null>(db, tenantId, "dm_menu", null);
 }
 
-/** An active campaign of this customer answers comments with the menu, so taps on its options must be answered. */
-export async function campaignMenuOn(db: D1Database, tenantId: number): Promise<boolean> {
-  return !!(await first<{ x: number }>(db, "SELECT 1 AS x FROM campaigns WHERE tenant_id = ? AND send_menu = 1 AND status = 'active' AND deleted_at IS NULL LIMIT 1", tenantId));
+/** The tree of one of this customer's active «قائمة تفاعلية» campaigns (null: not theirs, not active, or no menu). */
+export async function campaignMenuRoot(db: D1Database, tenantId: number, campaignId: number): Promise<MenuNode | null> {
+  const c = await first<{ menu_root: string | null }>(
+    db,
+    "SELECT menu_root FROM campaigns WHERE id = ? AND tenant_id = ? AND send_menu = 1 AND status = 'active' AND deleted_at IS NULL",
+    campaignId,
+    tenantId,
+  );
+  return parseMenuRoot(c?.menu_root);
+}
+
+export const isCampaignMenuPayload = (p?: string) => !!p && CAMPAIGN_MENU_PAYLOAD.test(p);
+
+/** A tap on an option of a campaign's «قائمة تفاعلية»: that option's reply, from that campaign's own tree. */
+export async function campaignMenuTap(ctx: EngineContext, row: EventRow, payload: string, account: AccountRow, participant: ParticipantRow): Promise<ProcessOutcome> {
+  const [, cid, key] = CAMPAIGN_MENU_PAYLOAD.exec(payload)!;
+  const campaignId = Number(cid);
+  const root = await campaignMenuRoot(ctx.db, account.tenant_id, campaignId);
+  if (!root) return { status: "ignored", reason: "menu_campaign_inactive", campaignId };
+  if (!findNode(root, key)) return { status: "ignored", reason: "menu_option_removed", campaignId };
+  const ent = await getEntitlement(ctx.db, account.tenant_id, ctx.now());
+  if (!ent.owner && !(ent.active && ent.limits.dm_menu)) return { status: "ignored", reason: "menu_not_in_plan", campaignId };
+  if (!account.is_demo && ent.limits.monthly_messages !== null && (await monthlyMessages(ctx.db, account.tenant_id, ctx.now())) >= ent.limits.monthly_messages) return { status: "ignored", reason: "monthly_limit_reached", campaignId };
+  await run(
+    ctx.db,
+    "INSERT INTO dm_menu_taps (tenant_id, node_key, taps, last_at) VALUES (?, ?, 1, ?) ON CONFLICT(tenant_id, node_key) DO UPDATE SET taps = taps + 1, last_at = excluded.last_at",
+    account.tenant_id, `c${campaignId}:${key}`, ctx.now(),
+  );
+  await enqueue(
+    ctx.db,
+    { kind: "menu_send", accountId: account.id, campaignId, isDemo: account.is_demo === 1, payload: { participant_id: participant.id, node: key, campaign_id: campaignId }, dedupKey: `cmenutap:ev${row.id}` },
+    ctx.now(),
+  );
+  return { status: "processed", reason: "menu_option", campaignId };
 }
 
 /**
@@ -31,7 +62,7 @@ export async function campaignMenuOn(db: D1Database, tenantId: number): Promise<
  */
 async function blocked(ctx: EngineContext, account: AccountRow, participant: ParticipantRow, menu: DmMenu | null, tap = false): Promise<string | null> {
   const parts = menuParts(menu);
-  if (tap ? !(parts.auto || parts.ice || parts.persistent || (await campaignMenuOn(ctx.db, account.tenant_id))) : !parts.auto) return "menu_off";
+  if (tap ? !(parts.auto || parts.ice || parts.persistent) : !parts.auto) return "menu_off";
   const ent = await getEntitlement(ctx.db, account.tenant_id, ctx.now());
   if (!ent.owner && !(ent.active && ent.limits.dm_menu)) return "menu_not_in_plan";
   if (!account.is_demo && ent.limits.monthly_messages !== null && (await monthlyMessages(ctx.db, account.tenant_id, ctx.now())) >= ent.limits.monthly_messages) return "monthly_limit_reached";
@@ -89,10 +120,11 @@ export async function menuTap(ctx: EngineContext, row: EventRow, payload: string
   return { status: "processed", reason: "menu_option" };
 }
 
-/** The message for one node: its text, its link and its options. */
-export function menuMessage(n: MenuNode): OutgoingMessage {
+/** The message for one node: its text, its link and its options (a campaign's own menu carries its id in the buttons). */
+export function menuMessage(n: MenuNode, campaignId?: number): OutgoingMessage {
+  const payload = (k: string) => (campaignId ? campaignMenuPayload(campaignId, k) : menuPayload(k));
   return {
     text: n.text,
-    menu: { style: n.style, options: n.children.map((c) => ({ title: c.label, payload: menuPayload(c.key) })), link: n.link ?? null },
+    menu: { style: n.style, options: n.children.map((c) => ({ title: c.label, payload: payload(c.key) })), link: n.link ?? null },
   };
 }

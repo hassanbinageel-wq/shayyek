@@ -69,6 +69,8 @@ export interface CampaignRow {
   utm?: number;
   /** 1 = the content message is the account's DM menu. */
   send_menu?: number;
+  /** That campaign's own menu tree (JSON of the root node). */
+  menu_root?: string | null;
   public_reply_enabled: number;
   public_reply_text: string | null;
   public_reply_on_dm_fail: "none" | "fallback";

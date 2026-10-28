@@ -38,7 +38,6 @@ export function DmMenuEditor() {
   const [taps, setTaps] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [sel, setSel] = useState<string | null>(null);
   useEffect(() => {
     api<{ menu: DmMenu; available: boolean; taps: Record<string, number> }>("/api/dm-menu")
       .then((r) => { setMenu(r.menu ?? emptyMenu()); setAvailable(r.available); setTaps(r.taps); })
@@ -64,32 +63,6 @@ export function DmMenuEditor() {
       setBusy(false);
     }
   };
-  const selKey = sel && pathTo(menu.root, sel).length ? sel : menu.root.key;
-  const path = pathTo(menu.root, selKey);
-  const node = path[path.length - 1];
-  const depth = path.length - 1;
-  const setNode = (n: MenuNode) => update({ ...menu, root: n.key === menu.root.key ? n : replaceNode(menu.root, n.key, n) });
-  const addChild = (parent: MenuNode) => {
-    if (parent.children.length >= MENU_LIMITS.quick) return toast(`الحد ${MENU_LIMITS.quick} أزرار`, "bad");
-    const c = blankOption();
-    setNode({ ...parent, children: [...parent.children, c] });
-    setSel(c.key);
-  };
-  const pick = (k: string) => { setSel(k); toPanel(); };
-  const remove = (n: MenuNode) => {
-    update({ ...menu, root: replaceNode(menu.root, n.key, null) });
-    setSel(path[path.length - 2]?.key ?? null);
-  };
-  const move = (d: -1 | 1) => {
-    const parent = path[path.length - 2];
-    if (!parent) return;
-    const i = parent.children.findIndex((c) => c.key === node.key);
-    const j = i + d;
-    if (j < 0 || j >= parent.children.length) return;
-    const ch = [...parent.children];
-    [ch[i], ch[j]] = [ch[j], ch[i]];
-    setNode({ ...parent, children: ch });
-  };
   const canTurnOn = available && menu.root.children.length > 0 && !problem;
   const byWords = menu.trigger === "keywords";
   return (
@@ -113,68 +86,39 @@ export function DmMenuEditor() {
         </label>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        {/* side panel: the selected box */}
-        <div id="menu-panel" className="card scroll-mt-20 space-y-3 p-4 lg:sticky lg:top-4 lg:self-start">
-          <b className="font-display block text-base">✏️ {depth === 0 ? "الرسالة الأولى" : `تعديل: «${node.label || "زر جديد"}»`}</b>
-          {depth > 0 && (
-            <Field label="عنوان الزر" hint={`${node.label.length}/${MENU_LIMITS.label}`}>
-              <input className="input" autoFocus={!node.label} maxLength={MENU_LIMITS.label} value={node.label} onChange={(e) => setNode({ ...node, label: e.target.value })} placeholder="مثل: الأسعار" />
-            </Field>
-          )}
-          <Field label={depth === 0 ? "نص الرسالة" : "لما يضغطه يوصله"}>
-            <textarea className="input min-h-[5.5rem]" maxLength={MENU_LIMITS.text} value={node.text} onChange={(e) => setNode({ ...node, text: e.target.value })} placeholder={depth === 0 ? "أهلًا 👋 اختر من الأزرار:" : "مثل: السعر 210 ريال وتدفع 110 فقط"} />
-          </Field>
-          <LinkEditor node={node} onChange={setNode} />
-          <div className="flex flex-wrap gap-2">
-            {depth + 1 < MENU_LIMITS.depth && <button type="button" className="btn btn-primary min-h-9 text-sm" onClick={() => addChild(node)}><Icon name="plus" size={15} />زر تحته</button>}
-            {depth > 0 && (
-              <>
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-sm" onClick={() => move(-1)} title="قبل">→</button>
-                <button type="button" className="btn btn-ghost min-h-9 px-3 text-sm" onClick={() => move(1)} title="بعد">←</button>
-                <button type="button" className="btn btn-ghost min-h-9 text-sm text-red-600" onClick={() => remove(node)}>حذف{node.children.length ? " مع أزراره" : ""}</button>
-              </>
-            )}
-          </div>
-          {taps[node.key] ? <p className="muted text-xs">انضغط {taps[node.key]} مرة</p> : null}
-          {depth === 0 && (
-            <div className="space-y-3 border-t border-[var(--border)] pt-3">
-              <b className="text-sm">متى توصل القائمة؟</b>
-              <div className="grid grid-cols-2 gap-2">
-                {([["keywords", "لما يكتب كلمة"], ["any", "مع أي رسالة"]] as const).map(([k, l]) => {
-                  const on = k === "keywords" ? byWords : !byWords;
-                  return (
-                    <button key={k} type="button" onClick={() => update({ ...menu, trigger: k === "keywords" ? "keywords" : byWords ? "daily" : menu.trigger })}
-                      className={`rounded-xl border px-2 py-2.5 text-sm font-bold ${on ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300" : "border-[var(--border)]"}`}>{l}</button>
-                  );
-                })}
-              </div>
-              {byWords ? (
-                <WordsInput words={menu.keywords ?? []} onChange={(keywords) => update({ ...menu, keywords })} />
-              ) : (
-                <select className="input" value={menu.trigger} onChange={(e) => update({ ...menu, trigger: e.target.value as DmMenu["trigger"] })} aria-label="كم مرة">
-                  <option value="daily">مرة وحدة كل 24 ساعة لنفس الشخص</option>
-                  <option value="first">أول رسالة من الشخص فقط</option>
-                  <option value="every">مع كل رسالة</option>
-                </select>
-              )}
-              <Field label="إذا رديت على الشخص بنفسك" hint="القائمة ما ترسل له هالمدة عشان ما تقاطع محادثتك">
-                <select className="input" value={menu.pause_hours} onChange={(e) => update({ ...menu, pause_hours: Number(e.target.value) })}>
-                  {[0, 2, 6, 12, 24, 48, 72].map((h) => <option key={h} value={h}>{h === 0 ? "لا تتوقف" : `توقف ${h} ساعة`}</option>)}
-                </select>
-              </Field>
+      <TreeEditor
+        root={menu.root}
+        onChange={(root) => update({ ...menu, root })}
+        taps={taps}
+        rootExtra={
+          <div className="space-y-3 border-t border-[var(--border)] pt-3">
+            <b className="text-sm">متى توصل القائمة؟</b>
+            <div className="grid grid-cols-2 gap-2">
+              {([["keywords", "لما يكتب كلمة"], ["any", "مع أي رسالة"]] as const).map(([k, l]) => {
+                const on = k === "keywords" ? byWords : !byWords;
+                return (
+                  <button key={k} type="button" onClick={() => update({ ...menu, trigger: k === "keywords" ? "keywords" : byWords ? "daily" : menu.trigger })}
+                    className={`rounded-xl border px-2 py-2.5 text-sm font-bold ${on ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300" : "border-[var(--border)]"}`}>{l}</button>
+                );
+              })}
             </div>
-          )}
-        </div>
-
-        {/* the tree */}
-        <div className="card min-w-0 p-4">
-          <p className="muted mb-3 text-xs">اضغط أي مربع لتعديله — «+» يضيف زر تحته. كبّر وصغّر بإصبعين أو بالأزرار، واسحب الشجرة بإصبع.</p>
-          <ZoomView>
-            <TreeNode node={menu.root} depth={0} selected={selKey} taps={taps} onSelect={pick} onAdd={(n) => { addChild(n); toPanel(); }} />
-          </ZoomView>
-        </div>
-      </div>
+            {byWords ? (
+              <WordsInput words={menu.keywords ?? []} onChange={(keywords) => update({ ...menu, keywords })} />
+            ) : (
+              <select className="input" value={menu.trigger} onChange={(e) => update({ ...menu, trigger: e.target.value as DmMenu["trigger"] })} aria-label="كم مرة">
+                <option value="daily">مرة وحدة كل 24 ساعة لنفس الشخص</option>
+                <option value="first">أول رسالة من الشخص فقط</option>
+                <option value="every">مع كل رسالة</option>
+              </select>
+            )}
+            <Field label="إذا رديت على الشخص بنفسك" hint="القائمة ما ترسل له هالمدة عشان ما تقاطع محادثتك">
+              <select className="input" value={menu.pause_hours} onChange={(e) => update({ ...menu, pause_hours: Number(e.target.value) })}>
+                {[0, 2, 6, 12, 24, 48, 72].map((h) => <option key={h} value={h}>{h === 0 ? "لا تتوقف" : `توقف ${h} ساعة`}</option>)}
+              </select>
+            </Field>
+          </div>
+        }
+      />
 
       <p className="muted text-xs">كل رسالة يرسلها النظام تنحسب من رسائل باقتك، والضغط على الأزرار نفسه ما ينحسب. النظام يرد فقط على اللي راسلك أول. <a className="font-bold text-violet-700 underline dark:text-violet-300" href="#/simulator?tab=menu">جرّبها في المحاكاة ←</a></p>
       {(dirty || problem) && (
@@ -183,6 +127,86 @@ export function DmMenuEditor() {
           <span className={`text-xs ${problem ? "text-red-600" : "muted"}`}>{problem ?? "فيه تعديلات ما انحفظت"}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/** A campaign's own «قائمة تفاعلية»: the same tree editor, saved with the campaign. */
+export function CampaignMenuEditor({ root, onChange }: { root: MenuNode; onChange: (root: MenuNode) => void }) {
+  const problem = menuProblem(withStyles(root));
+  return (
+    <div className="space-y-3">
+      <TreeEditor root={root} onChange={(r) => onChange(withStyles(r))} taps={{}} stacked />
+      {problem && <Alert tone="warn">{problem}</Alert>}
+    </div>
+  );
+}
+
+/** The side panel (the selected box) and the tree; `rootExtra` is shown under the first message's fields. */
+function TreeEditor({ root, onChange, taps, rootExtra, stacked }: { root: MenuNode; onChange: (root: MenuNode) => void; taps: Record<string, number>; rootExtra?: ReactNode; /** One column (inside a narrow page such as the campaign wizard). */ stacked?: boolean }) {
+  const [sel, setSel] = useState<string | null>(null);
+  const selKey = sel && pathTo(root, sel).length ? sel : root.key;
+  const path = pathTo(root, selKey);
+  const node = path[path.length - 1];
+  const depth = path.length - 1;
+  const setNode = (n: MenuNode) => onChange(n.key === root.key ? n : replaceNode(root, n.key, n));
+  const addChild = (parent: MenuNode) => {
+    if (parent.children.length >= MENU_LIMITS.quick) return toast(`الحد ${MENU_LIMITS.quick} أزرار`, "bad");
+    const c = blankOption();
+    setNode({ ...parent, children: [...parent.children, c] });
+    setSel(c.key);
+  };
+  const toEdit = () => (stacked ? document.getElementById("menu-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" }) : toPanel());
+  const pick = (k: string) => { setSel(k); toEdit(); };
+  const remove = (n: MenuNode) => {
+    onChange(replaceNode(root, n.key, null));
+    setSel(path[path.length - 2]?.key ?? null);
+  };
+  const move = (d: -1 | 1) => {
+    const parent = path[path.length - 2];
+    if (!parent) return;
+    const i = parent.children.findIndex((c) => c.key === node.key);
+    const j = i + d;
+    if (j < 0 || j >= parent.children.length) return;
+    const ch = [...parent.children];
+    [ch[i], ch[j]] = [ch[j], ch[i]];
+    setNode({ ...parent, children: ch });
+  };
+  return (
+    <div className={`grid gap-4 ${stacked ? "" : "lg:grid-cols-[360px_minmax(0,1fr)]"}`}>
+      {/* side panel: the selected box */}
+      <div id="menu-panel" className={`card scroll-mt-20 space-y-3 p-4 ${stacked ? "" : "lg:sticky lg:top-4 lg:self-start"}`}>
+        <b className="font-display block text-base">✏️ {depth === 0 ? "الرسالة الأولى" : `تعديل: «${node.label || "زر جديد"}»`}</b>
+        {depth > 0 && (
+          <Field label="عنوان الزر" hint={`${node.label.length}/${MENU_LIMITS.label}`}>
+            <input className="input" autoFocus={!node.label} maxLength={MENU_LIMITS.label} value={node.label} onChange={(e) => setNode({ ...node, label: e.target.value })} placeholder="مثل: الأسعار" />
+          </Field>
+        )}
+        <Field label={depth === 0 ? "نص الرسالة" : "لما يضغطه يوصله"}>
+          <textarea className="input min-h-[5.5rem]" maxLength={MENU_LIMITS.text} value={node.text} onChange={(e) => setNode({ ...node, text: e.target.value })} placeholder={depth === 0 ? "أهلًا 👋 اختر من الأزرار:" : "مثل: السعر 210 ريال وتدفع 110 فقط"} />
+        </Field>
+        <LinkEditor node={node} onChange={setNode} />
+        <div className="flex flex-wrap gap-2">
+          {depth + 1 < MENU_LIMITS.depth && <button type="button" className="btn btn-primary min-h-9 text-sm" onClick={() => addChild(node)}><Icon name="plus" size={15} />زر تحته</button>}
+          {depth > 0 && (
+            <>
+              <button type="button" className="btn btn-ghost min-h-9 px-3 text-sm" onClick={() => move(-1)} title="قبل">→</button>
+              <button type="button" className="btn btn-ghost min-h-9 px-3 text-sm" onClick={() => move(1)} title="بعد">←</button>
+              <button type="button" className="btn btn-ghost min-h-9 text-sm text-red-600" onClick={() => remove(node)}>حذف{node.children.length ? " مع أزراره" : ""}</button>
+            </>
+          )}
+        </div>
+        {taps[node.key] ? <p className="muted text-xs">انضغط {taps[node.key]} مرة</p> : null}
+        {depth === 0 && rootExtra}
+      </div>
+
+      {/* the tree */}
+      <div className="card min-w-0 p-4">
+        <p className="muted mb-3 text-xs">اضغط أي مربع لتعديله — «+» يضيف زر تحته. كبّر وصغّر بإصبعين أو بالأزرار، واسحب الشجرة بإصبع.</p>
+        <ZoomView>
+          <TreeNode node={root} depth={0} selected={selKey} taps={taps} onSelect={pick} onAdd={(n) => { addChild(n); toEdit(); }} />
+        </ZoomView>
+      </div>
     </div>
   );
 }

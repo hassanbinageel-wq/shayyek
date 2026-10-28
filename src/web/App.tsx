@@ -380,7 +380,7 @@ export function App() {
     <div className="min-h-screen lg:flex">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] px-4 py-5 lg:flex">
         <Link to="/" className="mb-5 block px-2" aria-label="الرئيسية">
-          <BrandLogo className="h-12" />
+          <BrandLogo className="h-10" />
         </Link>
         <Link to="/connection" className="mb-3 flex items-center gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
           <span className="rounded-full p-[2px]" style={{ background: "conic-gradient(from 200deg,#f97316,#db2777,#7c3aed,#f97316)" }}>

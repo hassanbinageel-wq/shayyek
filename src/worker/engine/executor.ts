@@ -21,8 +21,8 @@ import {
   type ParticipantRow,
 } from "./context";
 import { buttonPayload, processEvent, type EventRow } from "./events";
-import { campaignMenuOn, loadMenu, menuMessage } from "./menu";
-import { findNode, menuParts, menuReady } from "../../shared/menu";
+import { campaignMenuRoot, loadMenu, menuMessage } from "./menu";
+import { findNode, menuParts, parseMenuRoot, type MenuNode } from "../../shared/menu";
 import {
   AUTO_RECHECK,
   AUTO_RECHECK_DELAY_MS,
@@ -502,11 +502,12 @@ async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): 
   // Campaign tags (UTM) on the content link only where the plan includes them.
   if (isContent && l.campaign.utm !== 0 && !l.flow.is_demo && !(await getEntitlement(ctx.db, l.account.tenant_id, ctx.now())).limits.utm) l.campaign = { ...l.campaign, utm: 0 };
   let msg = buildMessage(purpose, l, channel);
-  // «القائمة التلقائية» instead of the content message (falls back to the content if the menu is empty or not in the plan).
-  if (isContent && l.campaign.send_menu && !(l.campaign.stock_out_at && l.campaign.stock_action === "waitlist")) {
-    const menu = await loadMenu(ctx.db, l.account.tenant_id);
+  // «قائمة تفاعلية»: the campaign's own menu instead of the content message (the content if the tree is missing or
+  // the plan no longer includes the menu).
+  if (isContent && l.campaign.send_menu) {
+    const root = parseMenuRoot(l.campaign.menu_root);
     const ent = await getEntitlement(ctx.db, l.account.tenant_id, ctx.now());
-    if (menuReady(menu) && (ent.owner || ent.limits.dm_menu || l.flow.is_demo === 1)) msg = menuMessage(menu.root);
+    if (root && (ent.owner || ent.limits.dm_menu || l.flow.is_demo === 1)) msg = menuMessage(root, l.campaign.id);
   }
   if (isContent && msg.linkButton) await trackLink(ctx, l, msg);
   const token = await ctx.getAccessToken(l.account);
@@ -660,7 +661,7 @@ async function execPublicReply(ctx: EngineContext, job: JobRow, owner: string): 
 
 /** DM menu: the menu message, or the reply of a tapped option (with its own options). */
 async function execMenuSend(ctx: EngineContext, job: JobRow, owner: string): Promise<ExecResult> {
-  const p = JSON.parse(job.payload || "{}") as { participant_id?: number; node?: string; root?: boolean };
+  const p = JSON.parse(job.payload || "{}") as { participant_id?: number; node?: string; root?: boolean; campaign_id?: number };
   const cancel = async (why: string): Promise<ExecResult> => {
     await finishJob(ctx.db, job, owner, "cancelled", ctx.now(), { error: why });
     return { outcome: "cancelled" };
@@ -669,10 +670,17 @@ async function execMenuSend(ctx: EngineContext, job: JobRow, owner: string): Pro
   const participant = p.participant_id ? await loadParticipant(ctx.db, p.participant_id) : null;
   if (!account || !participant || participant.account_id !== account.id) return cancel("missing account or person");
   if (account.status !== "active" || account.tenant_status !== "active") return cancel("account not active");
-  const menu = await loadMenu(ctx.db, account.tenant_id);
-  const parts = menuParts(menu);
-  const on = p.root ? parts.auto : parts.auto || parts.ice || parts.persistent || (await campaignMenuOn(ctx.db, account.tenant_id));
-  const node = on && p.node ? findNode(menu!.root, p.node) : null;
+  let node: MenuNode | null = null;
+  if (p.campaign_id) {
+    // A campaign's own «قائمة تفاعلية» (only while that campaign of this customer is active).
+    const root = await campaignMenuRoot(ctx.db, account.tenant_id, p.campaign_id);
+    node = root && p.node ? findNode(root, p.node) : null;
+  } else {
+    const menu = await loadMenu(ctx.db, account.tenant_id);
+    const parts = menuParts(menu);
+    const on = p.root ? parts.auto : parts.auto || parts.ice || parts.persistent;
+    node = on && p.node ? findNode(menu!.root, p.node) : null;
+  }
   if (!node) return cancel("menu off or option removed");
   let now = ctx.now();
   if (!windowOpen(participant, now)) {
@@ -685,7 +693,7 @@ async function execMenuSend(ctx: EngineContext, job: JobRow, owner: string): Pro
     return { outcome: "failed" };
   }
   if (!(await markExternalStart(ctx.db, job, owner, now))) return { outcome: "lease_lost" };
-  const msg = menuMessage(node);
+  const msg = menuMessage(node, p.campaign_id);
   const started = now;
   const r = await ctx.meta(account.is_demo === 1).sendMessage(token, account.ig_user_id, participant.igsid, msg);
   now = ctx.now();

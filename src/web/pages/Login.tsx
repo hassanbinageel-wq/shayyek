@@ -199,7 +199,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
       <div className="flex flex-1 items-start justify-center p-5 lg:items-center">
         <form onSubmit={submit} className="w-full max-w-[400px] space-y-4">
           <div className="mb-6">
-            <BrandLogo className="h-14" />
+            <BrandLogo className="h-10" />
           </div>
           <div>
             <h1 className="text-[28px] font-extrabold leading-tight">{status?.needs_setup ? "إعداد حساب الإدارة" : register ? "أنشئ حسابك ✨" : "أهلًا بعودتك 👋"}</h1>

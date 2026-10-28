@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { DateTimeField } from "../components/DateTimeField";
 import { api, ApiError } from "../api";
 import { navigate } from "../App";
 import { renderTemplate, claimsDelivery, claimsFollowRequired, contentLinkButton, publicReplyVariants, pickVariant, SAFE_PUBLIC_REPLIES, MAX_PUBLIC_VARIANTS, TEMPLATE_VARIABLES } from "../../shared/template";
-import { evaluateMatch } from "../../shared/match";
 import { AR_LABELS } from "../../shared/states";
 import { Alert, Card, Field, InfoDot, Modal, Spinner, Toggle, currentTz, toast, fmtTime } from "../components/ui";
-import { menuReady, type DmMenu } from "../../shared/menu";
+import { newKey, parseMenuRoot, type MenuNode } from "../../shared/menu";
+import { CampaignMenuEditor } from "../components/DmMenuEditor";
 import { PhonePreview, type ChatMsg, type CommentMsg } from "../components/PhonePreview";
 import { localInputToUtc, utcToLocalInput } from "../lib/tzInput";
 import { Icon } from "../components/Icon";
@@ -53,6 +53,7 @@ type Form = {
   auto_new_reels_only: boolean;
   auto_new_since: number | null;
   send_menu: boolean;
+  menu_root: MenuNode | null;
 };
 
 const EMPTY: Form = {
@@ -75,6 +76,7 @@ const EMPTY: Form = {
   final_text: "تفضل 🎁 {{content_url}}",
   final_url: "",
   send_menu: false,
+  menu_root: null,
   store_coupon: "",
   stock_action: "notify",
   utm: true,
@@ -181,33 +183,6 @@ function MediaPicker({ media, selected, onChange, onRefreshed, kind = "media" }:
   );
 }
 
-/** Content step: answer with the account's «القائمة التلقائية» (built in the inbox) instead of a content message. */
-function MenuChoice({ on, onChange, info }: { on: boolean; onChange: (v: boolean) => void; info: { menu: DmMenu; available: boolean } | null }) {
-  const root = info?.menu.root;
-  const ready = menuReady(info?.menu);
-  return (
-    <div className="surface-2 space-y-2 rounded-2xl p-3">
-      <Toggle
-        checked={on}
-        onChange={onChange}
-        label={<span className="inline-flex items-center gap-1.5">إرسال «القائمة التلقائية» بدل المحتوى<InfoDot text="لما يعلّق الشخص بكلمة الحملة (أو أي كلمة لو فعّلت «جميع التعليقات») يوصله في الخاص أول رسالة من القائمة التلقائية مع أزرارها، ويكمل يتنقل في التشجير بالضغط — بدون ما يحتاج يكتب في الخاص. نفس القائمة اللي تبنيها في «الرسائل ← القائمة التلقائية»." /></span>}
-        description="بدل رسالة المحتوى والرابط: يوصله التشجير اللي بنيته في الرسائل."
-      />
-      {on && info && !info.available && <Alert tone="warn">القائمة التلقائية غير متاحة في باقتك — بتنحفظ الحملة برسالة المحتوى.</Alert>}
-      {on && info && info.available && !ready && <Alert tone="warn">القائمة التلقائية فاضية. ابنها أول من «الرسائل ← القائمة التلقائية»، وإلى ذلك الحين تُرسل رسالة المحتوى الافتراضية.</Alert>}
-      {on && ready && (
-        <div className="text-sm">
-          <div className="muted text-xs">أول رسالة تنرسل:</div>
-          <div className="mt-1 whitespace-pre-line font-semibold">{root!.text}</div>
-          {root!.children.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1.5">{root!.children.map((c) => <span key={c.key} className="chip surface-2">{c.label}</span>)}</div>}
-        </div>
-      )}
-      {on && <a href="#/inbox?view=menu" className="inline-block text-sm font-semibold text-violet-600 underline dark:text-violet-300">تعديل القائمة التلقائية</a>}
-      {on && <p className="muted text-xs">ملاحظة: Meta تسمح برسالة خاصة واحدة لكل تعليق خلال 7 أيام؛ باقي التنقل يكمل لما يضغط الشخص زر من القائمة.</p>}
-    </div>
-  );
-}
-
 function KeywordEditor({ kind, keywords, onChange }: { kind: "include" | "exclude"; keywords: Keyword[]; onChange: (k: Keyword[]) => void }) {
   const [kw, setKw] = useState("");
   const [mt, setMt] = useState<Keyword["match_type"]>("contains");
@@ -244,6 +219,18 @@ function KeywordEditor({ kind, keywords, onChange }: { kind: "include" | "exclud
 /** Quick setup for a new campaign: post → keyword → message → activate; everything else keeps its defaults. */
 const QUICK_IDS = [2, 3, 8, 12];
 const QUICK_LABELS = ["المنشور", "الكلمة", "الرسالة", "المراجعة والتفعيل"];
+/** «قائمة تفاعلية»: post → keyword → the campaign's own menu tree → public reply → activate. Step 13 = the tree. */
+const MENU_IDS = [2, 3, 13, 9, 12];
+const MENU_LABELS = ["المنشور", "الكلمة", "القائمة", "الرد العام", "المراجعة والتفعيل"];
+type Mode = "quick" | "advanced" | "menu";
+const firstRoot = (): MenuNode => ({
+  key: newKey(),
+  label: "",
+  text: "أهلًا 👋 اختر من الأزرار:",
+  link: null,
+  style: "buttons",
+  children: [{ key: newKey(), label: "", text: "", link: null, style: "buttons", children: [] }],
+});
 
 /** Step ids shown: the follow-requirement messages (6, 7) only when the requirement is on. */
 const stepIds = (gated: boolean) => (gated ? STEPS.map((_, i) => i) : STEPS.map((_, i) => i).filter((i) => i !== 6 && i !== 7));
@@ -253,7 +240,9 @@ export function CampaignWizard({ id }: { id: number | null }) {
   const [step, setStep] = useState(0);
   // Below xl the live preview sits behind a button (in a window) instead of a screen-tall phone under the form.
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [quick, setQuick] = useState(!id);
+  const [mode, setModeState] = useState<Mode>(id ? "advanced" : "quick");
+  const quick = mode === "quick";
+  const menuMode = mode === "menu";
   const [loading, setLoading] = useState(!!id);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(id);
@@ -271,10 +260,15 @@ export function CampaignWizard({ id }: { id: number | null }) {
   });
   const [sim, setSim] = useState<any>(null);
   const [storeItems, setStoreItems] = useState<any[]>([]);
-  const [menuInfo, setMenuInfo] = useState<{ menu: DmMenu; available: boolean } | null>(null);
+  // A saved «قائمة تفاعلية» campaign opens in its own mode.
   useEffect(() => {
-    if (form.send_menu && !menuInfo) api("/api/dm-menu").then(setMenuInfo).catch(() => undefined);
-  }, [form.send_menu, menuInfo]);
+    if (form.send_menu && mode !== "menu") setModeState("menu");
+  }, [form.send_menu]);
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    setStep(0);
+    setForm((f) => ({ ...f, send_menu: m === "menu", menu_root: m === "menu" ? f.menu_root ?? firstRoot() : f.menu_root, type: m === "menu" ? "comment" : f.type }));
+  };
 
   useEffect(() => {
     if (id) {
@@ -296,6 +290,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
             follow_reminder_minutes: c.follow_reminder_minutes ?? 0,
             auto_new_media: !!c.auto_new_media,
             send_menu: !!c.send_menu,
+            menu_root: parseMenuRoot(c.menu_root),
             auto_new_reels_only: !!c.auto_new_reels_only,
             auto_new_since: c.auto_new_since ?? null,
             schedule_start: c.schedule_start,
@@ -316,8 +311,8 @@ export function CampaignWizard({ id }: { id: number | null }) {
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const vars = { username: "sara_test", account_username: account?.username ?? "your_account", account_link: `https://www.instagram.com/${account?.username ?? "your_account"}` };
   const isComment = form.type === "comment";
-  const ids = quick ? QUICK_IDS : stepIds(form.require_follow);
-  const labels = quick ? QUICK_LABELS : ids.map((i) => STEPS[i]);
+  const ids = quick ? QUICK_IDS : menuMode ? MENU_IDS : stepIds(form.require_follow);
+  const labels = quick ? QUICK_LABELS : menuMode ? MENU_LABELS : ids.map((i) => STEPS[i]);
   // Quick setup does not ask for a name: it is derived from the first keyword (editable later).
   const firstKeyword = form.keywords.find((k) => k.kind === "include")?.keyword;
   const autoName = firstKeyword ? `حملة «${firstKeyword}»` : `حملة ${new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { day: "numeric", month: "long" }).format(new Date())}`;
@@ -359,16 +354,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
       setSaving(false);
     }
   };
-
-  const localMatch = useMemo(
-    () =>
-      evaluateMatch(testText, {
-        matchAll: form.match_all || (form.type === "story_mention" && !form.keywords.some((k) => k.kind === "include")),
-        keywords: form.keywords.map((k) => ({ keyword: k.keyword, kind: k.kind, matchType: k.match_type })),
-        normalize: { unifyAlef: form.unify_alef },
-      }),
-    [testText, form],
-  );
 
   const runSim = async (event: string, script: any, reset = false, text = testText) => {
     const cid = savedId ?? (await save());
@@ -615,8 +600,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
       case 8:
         return (
           <div className="space-y-4">
-            <MenuChoice on={form.send_menu} onChange={(v) => set("send_menu", v)} info={menuInfo} />
-            {!form.send_menu && <>
             <Field label="نص المحتوى النهائي" hint="استخدم {{content_url}} لموضع الرابط. يُخزّن على الخادم ولا يظهر قبل أهلية التسليم.">
               <textarea className="input" value={form.final_text} onChange={(e) => set("final_text", e.target.value)} />
               {templatePicker(form.type === "story_mention" ? "mention" : "final", "final_text")}
@@ -669,7 +652,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
               description="نضيف لآخر الرابط اسم المصدر (instagram) واسم الحملة، فتعرف من Google Analytics أو تقارير متجرك كم زائر وطلب جابت هذي الحملة — حتى اللي اشتروا بدون كود الخصم. المتابع يفتح نفس الصفحة بدون أي فرق. (حسب باقتك — إذا ما كانت تشملها ما تنضاف الوسوم)"
             />
             <div className="muted text-xs">المتغيرات المتاحة: {Object.entries(TEMPLATE_VARIABLES).map(([k, v]) => `{{${k}}} — ${v}`).join(" · ")}. مثال بديل: {"{{username|يا غالي}}"}</div>
-            </>}
           </div>
         );
       case 9:
@@ -742,8 +724,11 @@ export function CampaignWizard({ id }: { id: number | null }) {
               <Field label="فاصل لكل مستخدم (ساعات)" hint="0 = بدون فاصل">
                 <input className="input" type="number" min={0} value={form.per_user_cooldown_hours} onChange={(e) => set("per_user_cooldown_hours", Number(e.target.value))} />
               </Field>
-              <Field label="أقصى تسليم لكل مستخدم" hint="0 = بلا حد">
-                <input className="input" type="number" min={0} value={form.max_deliveries_per_user} onChange={(e) => set("max_deliveries_per_user", Number(e.target.value))} />
+              <Field label={<span className="inline-flex items-center gap-1">أقصى تسليم لكل شخص <InfoDot text="كم مرة يقدر نفس الشخص يستلم رد هذي الحملة. الحد مفعّل دائمًا (مرة أو مرتين) عشان ما يتكرر الإرسال لنفس الشخص — يحمي حسابك من شكل الرسائل المزعجة ويوفّر رسائل باقتك." /></span>}>
+                <select className="input" value={Math.min(2, Math.max(1, form.max_deliveries_per_user || 1))} onChange={(e) => set("max_deliveries_per_user", Number(e.target.value))}>
+                  <option value={1}>مرة واحدة</option>
+                  <option value={2}>مرتين</option>
+                </select>
               </Field>
             </div>
             <Toggle checked={form.process_old_events} onChange={(v) => set("process_old_events", v)} label="معالجة الأحداث الأقدم من وقت التفعيل" description="افتراضيًا تُتجاهل." />
@@ -758,8 +743,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
           previews.push(["طلب المتابعة", strip(renderTemplate(form.follow_request_text, vars))]);
           previews.push(["تذكير", strip(renderTemplate(form.follow_reminder_text, vars))]);
         }
-        if (form.send_menu) previews.push(["القائمة التلقائية", "يوصله أول رسالة من «القائمة التلقائية» مع خياراتها، ويكمل يتنقل فيها بالضغط."]);
-        else previews.push(["المحتوى النهائي", renderTemplate(form.final_text, { ...vars, content_url: link }) + (link && !form.final_text.includes("{{content_url}}") ? `\n${link}` : "")]);
+        previews.push(["المحتوى النهائي", renderTemplate(form.final_text, { ...vars, content_url: link }) + (link && !form.final_text.includes("{{content_url}}") ? `\n${link}` : "")]);
         if (isComment && form.public_reply_enabled) previews.push([`الرد العام${publicVariants.length > 1 ? ` (1 من ${publicVariants.length} صيغ بالتناوب)` : ""}`, previewPublic]);
         return (
           <div className="space-y-4">
@@ -785,19 +769,31 @@ export function CampaignWizard({ id }: { id: number | null }) {
           </div>
         );
       }
+      case 13:
+        return (
+          <div className="space-y-3">
+            <p className="muted text-sm">لما يعلّق الشخص بالكلمة يوصله في الخاص أول رسالة مع أزرارها، وكل زر يرسل رده وأزراره. هذي القائمة خاصة بهالحملة وما تأثر على «القائمة التلقائية» في الرسائل.</p>
+            <CampaignMenuEditor root={form.menu_root ?? firstRoot()} onChange={(r) => set("menu_root", r)} />
+            <p className="muted text-xs">Meta تسمح برسالة خاصة واحدة لكل تعليق خلال 7 أيام؛ التنقل بعدها يكمل لما يضغط الشخص زر. كل رسالة ينحسب من رسائل باقتك.</p>
+          </div>
+        );
       case 12:
         return (
           <div className="space-y-3">
-            {quick && (
+            {(quick || menuMode) && (
               <Field label="اسم الحملة (اختياري)" hint="اسم داخلي تشوفه أنت فقط.">
                 <input className="input" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="حملة ..." />
               </Field>
             )}
-            {quick && (
+            {(quick || menuMode) && (
               <div className="surface-2 space-y-1 rounded-xl p-3 text-sm">
                 <div><span className="muted">المنشور: </span>{forPost ? "المنشور المجدول (يتربط عند النشر)" : form.scope === "all" ? "جميع المنشورات والريلز" : `${form.media_ids.length} منشور محدد`}</div>
                 <div><span className="muted">الكلمات: </span>{form.match_all ? "أي تعليق" : form.keywords.filter((k) => k.kind === "include").map((k) => k.keyword).join("، ") || "— لم تُحدد كلمة"}</div>
-                <div><span className="muted">الرابط: </span><span dir="ltr">{form.final_url || "—"}</span></div>
+                {menuMode ? (
+                  <div><span className="muted">القائمة: </span>{form.menu_root ? `${form.menu_root.children.length} زر تحت الرسالة الأولى` : "—"}</div>
+                ) : (
+                  <div><span className="muted">الرابط: </span><span dir="ltr">{form.final_url || "—"}</span></div>
+                )}
               </div>
             )}
             {!account || account.status !== "active" ? <Alert tone="warn">لا يوجد حساب متصل ونشط — يمكنك الحفظ كمسودة، لكن التفعيل لن يعالج أحداثًا حقيقية قبل الربط.</Alert> : null}
@@ -851,8 +847,8 @@ export function CampaignWizard({ id }: { id: number | null }) {
   // The content link is delivered as a tappable button (Instagram does not open bare links in a first message).
   const contentBtn = contentLinkButton(contentText, form.final_url || null);
   const invite = !form.require_follow && form.follow_invite ? form.follow_invite_text.trim() || "ونسعد بمتابعتك لحسابنا 💜" : "";
-  const root = menuInfo?.menu.root;
-  const contentMsg = (note?: string): ChatMsg => form.send_menu && root && menuReady(menuInfo?.menu) ? ({
+  const root = form.menu_root;
+  const contentMsg = (note?: string): ChatMsg => menuMode && root ? ({
     from: "bot",
     text: root.text,
     buttons: [...(root.link ? [root.link.title] : []), ...root.children.map((c) => c.label)],
@@ -903,17 +899,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
     />
   );
 
-  // Match test samples: a sentence with each trigger word, and each exclusion word as a question.
-  const includes = form.keywords.filter((k) => k.kind === "include").slice(0, 3).map((k) => `أبغى ${k.keyword}`);
-  const excludes = form.keywords.filter((k) => k.kind === "exclude").slice(0, 2).map((k) => `${k.keyword}؟`);
-  const samples = [...includes, ...excludes].map((t) => ({
-    t,
-    ok: evaluateMatch(t, {
-      matchAll: form.match_all,
-      keywords: form.keywords.map((k) => ({ keyword: k.keyword, kind: k.kind, matchType: k.match_type })),
-      normalize: { unifyAlef: form.unify_alef },
-    }).matched,
-  }));
   const tryInSimulator = async () => {
     const cid = await save();
     if (cid) navigate(`/simulator?campaign=${cid}`);
@@ -943,10 +928,11 @@ export function CampaignWizard({ id }: { id: number | null }) {
       {!id && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="seg" role="group" aria-label="طريقة الإعداد">
-            <button type="button" aria-pressed={quick} className={quick ? "on" : ""} onClick={() => { setQuick(true); setStep(0); }}>إعداد سريع</button>
-            <button type="button" aria-pressed={!quick} className={!quick ? "on" : ""} onClick={() => { setQuick(false); setStep(0); }}>كل الإعدادات</button>
+            {([["quick", "سريع"], ["advanced", "متقدم"], ["menu", "قائمة تفاعلية"]] as const).map(([m, l]) => (
+              <button key={m} type="button" aria-pressed={mode === m} className={mode === m ? "on" : ""} onClick={() => setMode(m)}>{l}</button>
+            ))}
           </div>
-          <span className="muted text-xs">{quick ? "4 خطوات، والباقي بقيم افتراضية آمنة تقدر تعدّلها لاحقًا." : "كل الخيارات: النوع، الاستثناءات، الرد العام، الجدولة، والمزيد."}</span>
+          <span className="muted text-xs">{quick ? "4 خطوات، والباقي بقيم افتراضية آمنة تقدر تعدّلها لاحقًا." : menuMode ? "يعلّق بالكلمة ← توصله قائمة أزرار في الخاص يتنقل فيها." : "كل الخيارات: النوع، الاستثناءات، الرد العام، الجدولة، والمزيد."}</span>
         </div>
       )}
 
@@ -985,27 +971,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
           <Card title={labels[step]} action={<span className="chip bg-violet-500/10 text-violet-700 dark:text-violet-200">الخطوة {step + 1} من {labels.length}</span>}>
             {stepBody()}
           </Card>
-          {(step === 3 || step === 4) && (
-            <Card title={<span className="flex flex-wrap items-baseline gap-x-3">اختبار المطابقة <span className="muted text-[13px] font-normal">اكتب تعليقًا وشوف النتيجة فورًا</span></span>}>
-              <div className="relative">
-                <input className="input pl-36" value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="نص التجربة" />
-                <span className={`chip absolute left-3 top-1/2 -translate-y-1/2 ${localMatch.matched ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"}`}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                  {localMatch.matched ? `يطابق «${localMatch.keyword ?? "الكل"}»` : "لا يطابق"}
-                </span>
-              </div>
-              {!localMatch.matched && localMatch.reason && <div className="muted mt-2 text-xs">السبب: {localMatch.reason}</div>}
-              {samples.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {samples.map((x) => (
-                    <button key={x.t} type="button" onClick={() => setTestText(x.t)} className={`chip ${x.ok ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"}`}>
-                      {x.ok ? "✓" : "✗"} «{x.t}»
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-          )}
           <button type="button" className="btn btn-ghost w-full xl:hidden" onClick={() => setPreviewOpen(true)}><Icon name="eye" size={18} />معاينة الرسالة</button>
           <div className="flex justify-between gap-2">
             <button className="btn btn-ghost" disabled={step === 0} onClick={() => setStep((st) => st - 1)}><Icon name="arrowL" size={18} className="rotate-180" />السابق</button>

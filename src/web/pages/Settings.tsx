@@ -13,7 +13,7 @@ import { Alert, Card, InfoDot, PageHeader, Spinner, Toggle, setTz, toast, useAsy
 import { bioUser, disableBio } from "../lib/biometric";
 
 const SECTIONS: Array<[string, string, string, string]> = [
-  ["general", "عام", "settings", "المنطقة الزمنية وحماية التكرار واسترجاع التعليقات"],
+  ["general", "عام", "settings", "المنطقة الزمنية واسترجاع التعليقات"],
   ["notifications", "الإشعارات", "send", "تيليجرام والتقارير والتنبيهات"],
   ["security", "الحساب والأمان", "lock", "الإيميل وكلمة المرور والتحقق بخطوتين والأجهزة وحذف البيانات"],
 ];
@@ -96,7 +96,6 @@ function HolderSettings({ onLogout, username }: SettingsProps) {
           retention_days: Number(s.retention_days),
           dedup_retention_days: Number(s.dedup_retention_days),
           any_reply_counts_as_start: !!s.any_reply_counts_as_start,
-          global_user_hourly_limit: Number(s.global_user_hourly_limit),
           auto_recover_comments: s.auto_recover_comments !== false,
         },
       });
@@ -172,9 +171,6 @@ function HolderSettings({ onLogout, username }: SettingsProps) {
                   ) : (
                     <input className="input !w-48" dir="ltr" value={s.timezone} onChange={(e) => edit({ timezone: e.target.value })} aria-label="المنطقة الزمنية" />
                   )}
-                </Row>
-                <Row label={<span className="inline-flex items-center gap-1.5">حد المسارات لكل شخص في الساعة<InfoDot text="المسار = رد تلقائي كامل يبدأ لما الشخص يعلّق أو يرد على ستوري. هذا الحد يمنع نفس الشخص من تشغيل أكثر من هذا العدد خلال ساعة عبر كل حملاتك (مثلًا لو علّق 20 مرة). يحمي حسابك من التكرار اللي يشبه الرسائل المزعجة. 0 = بدون حد." /></span>} hint="حماية من التكرار عبر كل الحملات (0 = بلا حد)">
-                  <input className="input !w-24 text-center" type="number" min={0} value={s.global_user_hourly_limit} onChange={(e) => edit({ global_user_hourly_limit: e.target.value })} aria-label="حد المسارات في الساعة" />
                 </Row>
                 <Toggle
                   checked={!!s.any_reply_counts_as_start}

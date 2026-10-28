@@ -1,5 +1,9 @@
 import { containsControlWord, evaluateMatch, START_WORDS, VERIFY_WORDS, type KeywordRule } from "../../shared/match";
 import { TERMINAL_FLOW_STATES } from "../../shared/states";
+import { clampDeliveries } from "../../shared/schemas";
+
+/** Reply flows one person may start per hour across all campaigns (fixed; no longer a setting). */
+export const USER_HOURLY_FLOWS = 4;
 import { all, first, getSetting, isUniqueViolation, run } from "../lib/db";
 import { randomToken } from "../lib/crypto";
 import type { NormalizedEvent } from "../meta/webhook-parse";
@@ -19,7 +23,7 @@ import { PROBE_CHECK, enqueue, VERIFY_CHECK } from "./jobs";
 import { recordMessage } from "../services/inbox";
 import { getEntitlement, monthlyMessages } from "../services/plans";
 import { cacheMediaStmt } from "../services/media";
-import { isMenuPayload, menuForMessage, menuTap } from "./menu";
+import { campaignMenuTap, isCampaignMenuPayload, isMenuPayload, menuForMessage, menuTap } from "./menu";
 
 export interface EventRow {
   id: number;
@@ -107,6 +111,7 @@ export async function processEvent(ctx: EngineContext, row: EventRow, opts: { fo
     case "postback":
       if (ev.buttonPayload && BUTTON_RE.test(ev.buttonPayload)) return routeButton(ctx, row, ev, participant);
       if (isMenuPayload(ev.buttonPayload)) return menuTap(ctx, row, ev.buttonPayload!, account, participant);
+      if (isCampaignMenuPayload(ev.buttonPayload)) return campaignMenuTap(ctx, row, ev.buttonPayload!, account, participant);
       return routeControl(ctx, row, ev, participant, account);
     case "message":
       return routeControl(ctx, row, ev, participant, account);
@@ -282,14 +287,15 @@ async function triggerCampaign(
 
   const now = ctx.now();
   // ---- repetition limits ----
-  if (chosen.max_deliveries_per_user > 0) {
+  {
+    const maxDeliveries = clampDeliveries(chosen.max_deliveries_per_user);
     const delivered = await first<{ n: number }>(
       ctx.db,
       "SELECT COUNT(*) AS n FROM conversation_flows WHERE campaign_id = ? AND participant_id = ? AND state = 'content_sent'",
       chosen.id,
       participant.id,
     );
-    if ((delivered?.n ?? 0) >= chosen.max_deliveries_per_user) {
+    if ((delivered?.n ?? 0) >= maxDeliveries) {
       return { status: "ignored", reason: "max_deliveries_reached", campaignId: chosen.id };
     }
   }
@@ -303,8 +309,9 @@ async function triggerCampaign(
     );
     if (recent) return { status: "ignored", reason: "user_cooldown", campaignId: chosen.id };
   }
-  const hourlyLimit = await getSetting(ctx.db, account.tenant_id, "global_user_hourly_limit", 10);
-  if (hourlyLimit > 0) {
+  // Fixed for every account (owner's decision): at most this many reply flows per person per hour, across campaigns.
+  const hourlyLimit = USER_HOURLY_FLOWS;
+  {
     const n = await first<{ n: number }>(
       ctx.db,
       "SELECT COUNT(*) AS n FROM conversation_flows WHERE participant_id = ? AND created_at > ?",

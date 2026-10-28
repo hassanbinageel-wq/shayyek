@@ -95,7 +95,7 @@ import { DEFAULT_MESSAGE_TEMPLATES, OUT_OF_MESSAGES_TEMPLATE, type MessageTempla
 const MESSAGE_LINK_PATHS = MESSAGE_LINKS.map((l) => l.to) as [string, ...string[]];
 import { listPaymentMethods } from "./services/payments";
 import { parseFaqText } from "../shared/support";
-import { emptyMenu, menuReady, extrasProblem, keywordsProblem, menuParts, menuProblem, type DmMenu, type MenuNode } from "../shared/menu";
+import { emptyMenu, extrasProblem, keywordsProblem, menuParts, menuProblem, type DmMenu, type MenuNode } from "../shared/menu";
 import { syncMenuProfile } from "./services/menuProfile";
 import { ATTACH, attachKey, attachLimit, CATEGORIES, DEFAULT_RESPONSE_TIME, cardFontKey, deleteTenantCardFonts, deleteTenantSupportFiles, notifyState, ownMessage, setState, stateAfterCustomer, STATES, supportCenter, ticketNo, type Incident } from "./services/support";
 import { CYCLE_MS, usageCycle, codeHash, deleteTenantData, drawsThisMonth, extendPlan, getEntitlement, listPlans, monthlyMessages, newCode, parseLimits, PERIOD_DAYS, redeemCode, RedeemError } from "./services/plans";
@@ -3181,11 +3181,12 @@ export function createApp() {
       warnings.push("الرد العام غير متاح في باقتك — حُفظت الحملة بدونه.");
     }
     if (d.track_clicks && !ent.limits.link_tracking) d.track_clicks = false;
-    if (d.send_menu && !ent.owner && !ent.limits.dm_menu) {
-      d.send_menu = false;
-      warnings.push("القائمة التلقائية غير متاحة في باقتك — حُفظت الحملة برسالة المحتوى.");
-    } else if (d.send_menu && !menuReady(await getSetting<DmMenu | null>(c.env.DB, T(c), "dm_menu", null))) {
-      warnings.push("القائمة التلقائية فاضية — أضف خيارات من «الرسائل ← القائمة التلقائية»، وإلى ذلك الحين تُرسل رسالة المحتوى.");
+    // «قائمة تفاعلية»: needs the menu in the plan and a complete tree with at least one button.
+    if (d.send_menu) {
+      if (!ent.owner && !ent.limits.dm_menu) return apiError(c, 403, "plan", "القائمة التفاعلية غير متاحة في باقتك — تحتاج باقة فيها «القائمة التلقائية».");
+      const root = d.menu_root!;
+      const problem = menuProblem(root) ?? (!root.children.length && !root.link ? "أضف زر واحد على الأقل تحت الرسالة الأولى" : null);
+      if (problem) return apiError(c, 400, "menu", problem);
     }
     if (d.utm && !ent.limits.utm) d.utm = false;
     if (d.require_follow && !(await followGateAllowed(c.env.DB, T(c)))) {
@@ -3215,6 +3216,7 @@ export function createApp() {
       utm: d.utm === false ? 0 : 1,
       out_of_stock_text: d.out_of_stock_text || null,
       send_menu: d.send_menu ? 1 : 0,
+      menu_root: d.send_menu && d.menu_root ? JSON.stringify(d.menu_root) : null,
       // "New posts from now on": the starting point is kept once set (or taken from the request), else it is now.
       auto_new_since: d.auto_new_media && d.type === "comment"
         ? d.auto_new_since ?? (id !== null ? (await first<{ v: number | null }>(c.env.DB, "SELECT auto_new_since AS v FROM campaigns WHERE id = ? AND tenant_id = ?", id, T(c)))?.v : null) ?? now

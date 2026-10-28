@@ -46,6 +46,19 @@ export interface DmMenu {
 export const MENU_LIMITS = { depth: 5, keywords: 30, keyword: 40, buttons: 3, quick: 13, label: 20, text: 640, iceBreakers: 4, question: 80, persistent: 5, persistentTitle: 30 } as const;
 export const MENU_PAYLOAD = /^hsn:menu:([A-Za-z0-9]{4,16})$/;
 export const menuPayload = (key: string) => `hsn:menu:${key}`;
+/** A button of a campaign's own «قائمة تفاعلية»: the campaign id travels with the option key. */
+export const CAMPAIGN_MENU_PAYLOAD = /^hsn:cmenu:(\d{1,12}):([A-Za-z0-9]{4,16})$/;
+export const campaignMenuPayload = (campaignId: number, key: string) => `hsn:cmenu:${campaignId}:${key}`;
+/** The campaign's menu tree as stored (JSON of the root node), or null. */
+export function parseMenuRoot(raw: string | null | undefined): MenuNode | null {
+  if (!raw) return null;
+  try {
+    const r = JSON.parse(raw) as MenuNode;
+    return r && typeof r.text === "string" && Array.isArray(r.children) ? r : null;
+  } catch {
+    return null;
+  }
+}
 
 export const TRIGGER_LABELS: Record<DmMenu["trigger"], string> = {
   first: "أول رسالة من الشخص فقط",
