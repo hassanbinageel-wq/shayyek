@@ -718,10 +718,10 @@ export function CampaignWizard({ id }: { id: number | null }) {
                     : `الحملة ترد من لحظة تفعيلها لين ${fmtTime(form.schedule_end!, form.timezone)}، وبعدها ما ترد على أحد.`}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="الأولوية" hint="عند تطابق عدة حملات تُنفَّذ الأعلى فقط.">
+              <Field label={<span className="inline-flex items-center gap-1">الأولوية <InfoDot text="لو تعليق واحد طابق أكثر من حملة (مثلًا نفس الكلمة في حملتين)، ترد الحملة اللي رقم أولويتها أكبر فقط — ما يوصل الشخص ردّين. لو تساوت الأولوية ترد الحملة الأقدم. الافتراضي 100." /></span>} hint="عند تطابق عدة حملات تُنفَّذ الأعلى فقط.">
                 <input className="input" type="number" min={0} max={1000} value={form.priority} onChange={(e) => set("priority", Number(e.target.value))} />
               </Field>
-              <Field label="فاصل لكل مستخدم (ساعات)" hint="0 = بدون فاصل">
+              <Field label={<span className="inline-flex items-center gap-1">فاصل لكل شخص (ساعات) <InfoDot text="بعد ما يستلم الشخص رد الحملة، كم ساعة لازم تمر قبل ما ترد عليه نفس الحملة مرة ثانية. مهم لو اخترت «مرتين» في أقصى تسليم: مثلًا 24 = ما يستلم المرة الثانية إلا بعد يوم. 0 = بدون فاصل." /></span>} hint="0 = بدون فاصل">
                 <input className="input" type="number" min={0} value={form.per_user_cooldown_hours} onChange={(e) => set("per_user_cooldown_hours", Number(e.target.value))} />
               </Field>
               <Field label={<span className="inline-flex items-center gap-1">أقصى تسليم لكل شخص <InfoDot text="كم مرة يقدر نفس الشخص يستلم رد هذي الحملة. الحد مفعّل دائمًا (مرة أو مرتين) عشان ما يتكرر الإرسال لنفس الشخص — يحمي حسابك من شكل الرسائل المزعجة ويوفّر رسائل باقتك." /></span>}>
@@ -731,7 +731,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
                 </select>
               </Field>
             </div>
-            <Toggle checked={form.process_old_events} onChange={(v) => set("process_old_events", v)} label="معالجة الأحداث الأقدم من وقت التفعيل" description="افتراضيًا تُتجاهل." />
+            <Toggle checked={form.process_old_events} onChange={(v) => set("process_old_events", v)} label={<span className="inline-flex items-center gap-1.5">معالجة الأحداث الأقدم من وقت التفعيل<InfoDot text="افتراضيًا الحملة ترد فقط على التعليقات اللي انكتبت بعد ما فعّلتها. لو فعّلت هذا الخيار، ترد أيضًا على تعليقات انكتبت قبل التفعيل إذا وصلت للنظام متأخرة (مثلًا عبر «استرجاع التعليقات الفائتة»). Meta تسمح بالرد الخاص على التعليق خلال 7 أيام فقط من كتابته. خلّه مطفأ إلا لو تبغى الحملة تلحق تعليقات قديمة." /></span>} description="افتراضيًا تُتجاهل." />
           </div>
         );
       case 11: {
