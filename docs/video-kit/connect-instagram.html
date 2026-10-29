@@ -77,6 +77,20 @@ html.land,html.land body{width:1920px;height:1080px}
 .land #end img.sp{left:420px;right:auto;top:-575px;bottom:auto}
 .land #end .help{top:540px}
 .land #bg .b1{width:900px;height:700px}
+.laptop{position:absolute;left:60px;top:215px;width:1020px}
+.laptop .lid{background:#0f0c1d;border-radius:30px 30px 10px 10px;padding:20px 20px 24px;box-shadow:0 40px 80px rgba(80,40,140,.25)}
+.laptop .screen{width:980px;height:612px;border-radius:8px}
+.laptop .screen img.shot{width:980px}
+.laptop .base{position:relative;height:24px;margin:0 -60px;background:linear-gradient(#e4e1ef,#bdb8d0);border-radius:2px 2px 34px 34px}
+.laptop .base:after{content:"";position:absolute;left:50%;top:0;width:180px;height:10px;margin-left:-90px;background:#a9a3c0;border-radius:0 0 12px 12px}
+.desk .head{right:80px;width:650px}.desk .title{font-size:60px}.desk .sub{font-size:32px}
+.desk .crumb{right:80px;width:650px}.desk .dotsnav{right:80px;width:650px}
+.desk .typed{font-size:16px}.desk .caret{height:22px}
+.win{position:absolute;left:50%;top:14px;width:460px;height:584px;margin-left:-230px;border-radius:16px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.35)}
+.win .mock{padding:20px 28px}.win .mock h3{margin:16px 0 4px;font-size:28px}.win .mock p{font-size:17px;margin-bottom:10px}
+.win .mock .f{height:52px;font-size:19px;margin:10px 0}.win .mock .perm{font-size:16px;padding:10px 14px;margin-top:10px;line-height:1.6}
+.win .mock .btn{height:56px;font-size:23px;margin-top:12px}.win .mock .bar2{font-size:17px;padding:8px}
+.win .lock{left:24px;right:24px;bottom:14px;font-size:15px;padding:9px 12px}
 </style></head><body>
 <div id="bg"><div class="dots"></div><div class="b1"></div><div class="b2"></div></div>
 <div class="scene" id="intro"><div class="big"><img src="logo-light.svg"></div><div class="q">تبي تربط حساب إنستقرام؟</div><div class="s">4 خطوات بس — وأقل من دقيقة ⏱️</div></div>
@@ -84,9 +98,12 @@ html.land,html.land body{width:1920px;height:1080px}
 <div class="scene" id="end"><img class="sp" id="sp" src="p000.png">
   <div class="help" id="help"><div class="h1">عندك استفسار؟ 💬</div><div class="h2">فريق شيّك في خدمتك<br>من صفحة الدعم</div><div class="mail">support@shayyek.sa</div></div></div>
 <script>
-const LAND = location.search.includes("land");
+const DESK = location.search.includes("desk");
+const LAND = DESK || location.search.includes("land");
+const K = 980 / 1440; // desktop screenshot CSS px -> laptop screen px
 const S = LAND ? 0.74 : 1; // phone scale
 if (LAND) document.documentElement.classList.add("land");
+if (DESK) document.documentElement.classList.add("desk");
 const W = 592 / 1080, C = 592 / 390; // screenshot px / CSS px -> screen px
 const IGS = [
   `<div class="bar"><span>shayyek.sa ⌄</span><span class="ic"><span id="burger">☰</span><span>＋</span></span></div>
@@ -118,6 +135,12 @@ const STEPS = [
   { n: 5, t: "تم الربط ✅", s: "يظهر حسابك وحالته «فعّال» — وجاهز لأول حملة", img: "6-connected.png", hi: [838, 968, 154, 60], crop: 1480, a: 35.9, b: 39.9, from: 0.8, noTap: true },
 ];
 STEPS.forEach((s) => (s.dur = s.b - s.a));
+if (DESK) {
+  Object.assign(STEPS[1], { img: "d1-login.png", s: "من متصفح الكمبيوتر" });
+  Object.assign(STEPS[2], { img: "d2-home.png", t: "من القائمة الجانبية اختر «الربط»", s: "في الجوال تلقاه في «المزيد»", hi: [1201, 606, 223, 43] });
+  Object.assign(STEPS[3], { img: "d3-connection.png", hi: [954, 381, 161, 44] });
+  Object.assign(STEPS[5], { img: "d4-connected.png", hi: [1056, 336, 63, 27], crop: 0, cover: [64, 468, 1056, 82] });
+}
 const box = document.getElementById("steps");
 STEPS.forEach((st, i) => {
   const el = document.createElement("div"); el.className = "scene"; el.id = "st" + i;
@@ -130,10 +153,21 @@ STEPS.forEach((st, i) => {
   else screen = `<img class="shot" src="${st.img}" style="${st.crop ? `clip-path:inset(0 0 ${(2338 - st.crop) * W}px 0)` : ""}">${st.crop ? `<div style="position:absolute;left:0;right:0;top:${st.crop * W - 120}px;height:120px;background:linear-gradient(transparent,#fff)"></div><div style="position:absolute;left:0;right:0;top:${st.crop * W}px;bottom:0;background:#fff"></div>` : ""}`
     + (st.login ? `<div class="typed" id="lu" style="left:${20 * C + 3}px;top:${355 * C + 3}px;width:${350 * C - 6}px;height:${48 * C - 6}px;padding:0 19px;border-radius:24px;direction:ltr"></div>
                    <div class="typed" id="lp" style="left:${20 * C + 60}px;top:${447.5 * C + 3}px;width:${350 * C - 66}px;height:${48 * C - 6}px;padding:0 19px;direction:rtl;letter-spacing:4px"></div>` : "");
+  if (DESK && !st.ig) {
+    let inner;
+    if (st.mock) inner = `<img class="shot" src="d3-connection.png"><div style="position:absolute;inset:0;background:rgba(15,12,29,.45)"></div><div class="win"><div class="mock"><div class="bar2">🔒 instagram.com</div><h3>تسجيل الدخول</h3><p>صفحة Meta الرسمية — نافذة في متصفحك</p>
+       <div class="f" id="mu"><span class="ph">اسم المستخدم</span><span class="v"></span></div><div class="f" id="mp"><span class="ph">كلمة المرور</span><span class="v"></span></div>
+       <div class="perm">✔ إدارة الرسائل<br>✔ إدارة التعليقات<br>✔ قراءة معلومات الحساب</div><div class="btn" id="allow">السماح</div></div>
+       <div class="lock">🔐 شيّك ما يشوف كلمة مرورك — الربط عبر Meta الرسمي</div></div>`;
+    else inner = `<img class="shot" src="${st.img}">` + (st.cover ? `<div style="position:absolute;left:${st.cover[0] * K}px;top:${st.cover[1] * K}px;width:${st.cover[2] * K}px;height:${st.cover[3] * K}px;background:#fff"></div>` : "")
+      + (st.login ? `<div class="typed" id="lu" style="left:${836.8 * K + 2}px;top:${301.25 * K + 2}px;width:${400 * K - 4}px;height:${48.4 * K - 4}px;padding:0 13px;border-radius:16px;direction:ltr"></div>
+                    <div class="typed" id="lp" style="left:${836.8 * K + 40}px;top:${393.7 * K + 2}px;width:${400 * K - 44}px;height:${48.4 * K - 4}px;padding:0 13px;direction:rtl;letter-spacing:3px"></div>` : "");
+    screen = inner;
+  }
   el.innerHTML = `<div class="top"><img src="logo-light.svg"></div>
    <div class="head"><span class="chip">${st.n === 5 ? "✓" : st.n}</span><div class="title">${st.t}</div><div class="sub">${st.s}</div></div>
    ${st.ig ? `<div class="crumb" id="crumb"></div>` : ""}
-   <div class="phone"><div class="screen">${screen}<div class="ring"></div><div class="tap"></div></div></div>
+   ${DESK && !st.ig ? `<div class="laptop"><div class="lid"><div class="screen"><div class="zoom" style="position:absolute;inset:0">${screen}<div class="ring"></div><div class="tap"></div></div></div></div><div class="base"></div></div>` : `<div class="phone"><div class="screen">${screen}<div class="ring"></div><div class="tap"></div></div></div>`}
    <div class="dotsnav">${[1, 2, 3, 4].map((j) => `<i class="${j === st.n || (st.n === 5) ? "on" : ""}"></i>`).join("")}</div>`;
   box.appendChild(el);
 });
@@ -141,7 +175,7 @@ const clamp = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
 const INTRO = 4.65, END0 = 39.9, starts = STEPS.map((s) => s.a);
 window.TOTAL = 45.4;
-const rel = (el, scr) => { const a = el.getBoundingClientRect(), b = scr.getBoundingClientRect(); return [(a.left - b.left) / S, (a.top - b.top) / S, a.width / S, a.height / S]; };
+const rel = (el, scr) => { const a = el.getBoundingClientRect(), b = scr.getBoundingClientRect(), z = b.width / scr.offsetWidth; return [(a.left - b.left) / z, (a.top - b.top) / z, a.width / z, a.height / z]; };
 function point(el, hiScreen, lt, from, tapAt, noTap) {
   const ring = el.querySelector(".ring"), tap = el.querySelector(".tap");
   if (!hiScreen) { ring.style.display = tap.style.display = "none"; return; }
@@ -171,8 +205,16 @@ window.render = (t) => {
     show(el, on ? Math.min(ease(lt / 0.35), 1 - clamp((lt - st.dur + 0.3) / 0.3)) : 0);
     if (!on) return;
     el.querySelector(".head").style.transform = `translateY(${30 * (1 - ease(lt / 0.5))}px)`;
-    el.querySelector(".phone").style.transform = `scale(${S}) translateY(${120 * (1 - ease((lt - 0.1) / 0.7))}px)`;
+    { const dev = el.querySelector(".phone, .laptop"); dev.style.transform = `${dev.classList.contains("phone") ? `scale(${S}) ` : ""}translateY(${120 * (1 - ease((lt - 0.1) / 0.7))}px)`; }
     const scr = el.querySelector(".screen");
+    // Desktop: zoom smoothly toward the spot being explained, so the small laptop screen stays readable
+    const zm = el.querySelector(".zoom");
+    if (zm && !st.mock) {
+      const tg = st.login ? [836.8, 300, 400, 210] : st.hi, from = st.login ? 0.9 : (st.from ?? 1.0) - 0.35;
+      const zk = 1 + 0.6 * ease((lt - from) / 0.7);
+      zm.style.transformOrigin = `${(tg[0] + tg[2] / 2) * K}px ${(tg[1] + tg[3] / 2) * K}px`;
+      zm.style.transform = `scale(${zk})`;
+    }
     if (st.ig) {
       const cr = el.querySelector("#crumb"), clip = el.querySelector("#clip"), prof = el.querySelector("#ig0");
       const setCrumb = (ar, en, at) => { cr.innerHTML = `${ar}<small>${en}</small>`; cr.style.opacity = ease((lt - at) / 0.3); };
@@ -198,7 +240,7 @@ window.render = (t) => {
       el.querySelector("#lu").innerHTML = (u || '<span style="color:#9b97ad">shayyek.sa</span>') + (lt < 2.3 ? caret(lt, 1.2, 2.2) : "");
       el.querySelector("#lu").style.opacity = lt > 1.1 ? 1 : 0;
       el.querySelector("#lp").innerHTML = p + (lt >= 2.3 ? caret(lt, 2.4, 3.0) : "");
-      point(el, [20 * C, 512 * C, 350 * C, 44 * C], lt, 3.0, 3.35);
+      point(el, DESK ? [836.8 * K, 458 * K, 400 * K, 44 * K] : [20 * C, 512 * C, 350 * C, 44 * C], lt, 3.0, 3.35);
       return;
     }
     if (st.mock) {
@@ -211,7 +253,7 @@ window.render = (t) => {
       point(el, rel(el.querySelector("#allow"), scr), lt, 4.85, 5.45);
       return;
     }
-    point(el, st.hi && st.hi.map((v) => v * W), lt, st.from ?? 1.0, st.tapAt ?? 2.2, st.noTap);
+    point(el, st.hi && st.hi.map((v) => v * (DESK ? K : W)), lt, st.from ?? 1.0, st.tapAt ?? 2.2, st.noTap);
   });
   const et = t - END0, en = document.getElementById("end");
   show(en, et >= 0 ? ease(et / 0.3) : 0);
