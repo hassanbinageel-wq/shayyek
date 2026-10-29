@@ -33,14 +33,23 @@ h1{margin:0;font-weight:900;line-height:1.12}
 .l .b1{width:700px;height:520px;top:-220px;right:-200px}.l .b2{width:500px;height:380px;bottom:-220px;left:-180px}
 .l .logo{position:absolute;top:44px;right:64px}.l .logo img{height:58px}
 .l .txt{position:absolute;top:150px;right:64px;width:720px;text-align:right}
-.l h1{font-size:92px}.l .chip{font-size:30px;margin-top:26px}
+.l h1{font-size:86px}.l .chip{font-size:30px;margin-top:26px}
 .l .steps{margin-top:30px;font-size:22px;justify-content:flex-start;gap:10px}.l .steps span{padding:8px 14px}
 .l .phone{left:150px;top:60px;transform:scale(.5) rotate(-6deg);transform-origin:top left}
 .l .ok{font-size:32px;top:520px;left:40px;transform:rotate(-4deg)}
+.lap{position:absolute;display:none}
+.lap .lid{background:#0f0c1d;border-radius:22px 22px 8px 8px;padding:14px 14px 18px;box-shadow:0 40px 80px rgba(80,40,140,.3)}
+.lap .scr{position:relative;width:500px;height:312px;border-radius:6px;overflow:hidden;background:#fff}
+.lap .scr img{position:absolute;width:500px;left:0;top:0;transform-origin:70% 26%;transform:scale(1.5)}
+.lap .base{position:relative;height:16px;margin:0 -36px;background:linear-gradient(#e4e1ef,#bdb8d0);border-radius:2px 2px 26px 26px}
+.lap .base:after{content:"";position:absolute;left:50%;top:0;width:120px;height:7px;margin-left:-60px;background:#a9a3c0;border-radius:0 0 9px 9px}
+.l .phone{display:none}.l .lap{display:block;left:46px;top:170px;transform:perspective(1600px) rotateY(12deg) rotate(-2deg);transform-origin:left center}
+.l .ok{top:520px;left:40px}
 </style></head><body>
 <div id="bg"><div class="dots"></div><div class="b1"></div><div class="b2"></div></div>
 <div class="wrap">
   <div class="phone"><div class="screen"><img src="6-connected.png" style="clip-path:inset(0 0 470px 0)"><div style="position:absolute;left:0;right:0;top:700px;height:120px;background:linear-gradient(transparent,#fff)"></div><div style="position:absolute;left:0;right:0;top:810px;bottom:0;background:#fff"></div></div></div>
+  <div class="lap"><div class="lid"><div class="scr"><img src="d4-connected.png"><div style="position:absolute;left:0;right:0;top:203px;height:44px;background:#fff"></div></div></div><div class="base"></div></div>
   <div class="ok">✅ تم الربط</div>
   <div class="logo"><img src="logo-light.svg"></div>
   <div class="txt"><h1>كيف أربط<br><span class="grad">حساب إنستقرام؟</span></h1><div class="chip">⏱️ 4 خطوات — أقل من دقيقة</div>

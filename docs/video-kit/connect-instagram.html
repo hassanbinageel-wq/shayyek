@@ -85,7 +85,7 @@ html.land,html.land body{width:1920px;height:1080px}
 .laptop .base:after{content:"";position:absolute;left:50%;top:0;width:180px;height:10px;margin-left:-90px;background:#a9a3c0;border-radius:0 0 12px 12px}
 .desk .head{right:80px;width:650px}.desk .title{font-size:60px}.desk .sub{font-size:32px}
 .desk .crumb{right:80px;width:650px}.desk .dotsnav{right:80px;width:650px}
-.desk .typed{font-size:16px}.desk .caret{height:22px}
+.desk .laptop .tap{width:46px;height:46px;margin:24px 0 0 6px;border-width:3px}.desk .typed{font-size:16px}.desk .caret{height:22px}
 .win{position:absolute;left:50%;top:14px;width:460px;height:584px;margin-left:-230px;border-radius:16px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.35)}
 .win .mock{padding:20px 28px}.win .mock h3{margin:16px 0 4px;font-size:28px}.win .mock p{font-size:17px;margin-bottom:10px}
 .win .mock .f{height:52px;font-size:19px;margin:10px 0}.win .mock .perm{font-size:16px;padding:10px 14px;margin-top:10px;line-height:1.6}
@@ -211,8 +211,13 @@ window.render = (t) => {
     const zm = el.querySelector(".zoom");
     if (zm && !st.mock) {
       const tg = st.login ? [836.8, 300, 400, 210] : st.hi, from = st.login ? 0.9 : (st.from ?? 1.0) - 0.35;
-      const zk = 1 + 0.6 * ease((lt - from) / 0.7);
-      zm.style.transformOrigin = `${(tg[0] + tg[2] / 2) * K}px ${(tg[1] + tg[3] / 2) * K}px`;
+      const ZK = 1.6, zk = 1 + (ZK - 1) * ease((lt - from) / 0.7);
+      // Zoom origin chosen so the whole target (with its icon) stays inside the screen with a margin
+      const fit = (a0, len, size, m = 36) => {
+        const lo = (ZK * (a0 + len) - (size - m)) / (ZK - 1), hi = (ZK * a0 - m) / (ZK - 1);
+        return Math.min(size, Math.max(0, Math.min(Math.max(a0 + len / 2, lo), hi)));
+      };
+      zm.style.transformOrigin = `${fit(tg[0] * K, tg[2] * K, 980)}px ${fit(tg[1] * K, tg[3] * K, 612)}px`;
       zm.style.transform = `scale(${zk})`;
     }
     if (st.ig) {
