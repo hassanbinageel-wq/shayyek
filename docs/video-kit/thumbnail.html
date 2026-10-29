@@ -1,0 +1,54 @@
+<!doctype html><html dir="ltr" lang="ar"><head><meta charset="utf-8"><style>
+@font-face{font-family:T;font-weight:600;src:url(thmanyahsans-Medium.woff2)}
+@font-face{font-family:T;font-weight:700;src:url(thmanyahsans-Bold.woff2)}
+@font-face{font-family:T;font-weight:900;src:url(thmanyahsans-Black.woff2)}
+*{box-sizing:border-box}html,body{margin:0;overflow:hidden;font-family:T,sans-serif;color:#16122b}
+body{background:linear-gradient(180deg,#f8f7fd,#f4f2fc)}
+#bg{position:absolute;inset:0;overflow:hidden}
+#bg .dots{position:absolute;inset:0;background-image:radial-gradient(circle,#d9d4ea 2px,transparent 2.4px);background-size:52px 52px;opacity:.7}
+#bg .b1{position:absolute;border-radius:50%;background:#c9bcff;filter:blur(120px);opacity:.8}
+#bg .b2{position:absolute;border-radius:50%;background:#ffd9c2;filter:blur(110px);opacity:.5}
+.wrap{position:absolute;inset:0;direction:rtl}
+.phone{position:absolute;width:620px;height:1309px;border-radius:64px;background:#0f0c1d;padding:14px;box-shadow:0 50px 100px rgba(80,40,140,.32)}
+.screen{position:relative;width:100%;height:100%;border-radius:52px;overflow:hidden;background:#fff}
+.screen img{position:absolute;top:0;left:0;width:592px}
+.ok{position:absolute;display:flex;align-items:center;gap:14px;background:#fff;border-radius:999px;padding:18px 30px;font-weight:900;color:#047857;box-shadow:0 20px 50px rgba(4,120,87,.22);border:3px solid #a7f3d0}
+.chip{display:inline-flex;align-items:center;gap:12px;padding:12px 26px;border-radius:999px;color:#fff;font-weight:700;background:linear-gradient(135deg,#7c3aed,#db2777 60%,#f97316)}
+h1{margin:0;font-weight:900;line-height:1.12}
+.grad{background:linear-gradient(135deg,#7c3aed,#db2777 55%,#f97316);-webkit-background-clip:text;background-clip:text;color:transparent}
+.steps{display:flex;gap:14px;flex-wrap:wrap}
+.steps span{background:#fff;border:2px solid #e6e1f5;border-radius:18px;padding:10px 20px;font-weight:700;color:#4c4766}
+.steps b{color:#7c3aed}
+/* portrait (Reels 1080x1920): key content inside the centre 1080x1350 */
+.p{width:1080px;height:1920px}
+.p .b1{width:800px;height:640px;top:-200px;right:-260px}.p .b2{width:600px;height:480px;bottom:-240px;left:-220px}
+.p .logo{position:absolute;top:300px;left:0;right:0;text-align:center}.p .logo img{height:84px}
+.p .txt{position:absolute;top:430px;left:70px;right:70px;text-align:center}
+.p h1{font-size:120px}.p .chip{font-size:40px;margin-top:30px}
+.p .phone{left:50%;margin-left:-310px;top:1010px;transform:scale(.82) rotate(-5deg);transform-origin:top center}
+.p .ok{font-size:46px;top:1300px;left:70px;transform:rotate(-4deg);z-index:3}
+.p .steps{position:absolute;top:880px;left:60px;right:60px;justify-content:center;font-size:30px}
+/* landscape (YouTube 1280x720) */
+.l{width:1280px;height:720px}
+.l .b1{width:700px;height:520px;top:-220px;right:-200px}.l .b2{width:500px;height:380px;bottom:-220px;left:-180px}
+.l .logo{position:absolute;top:44px;right:64px}.l .logo img{height:58px}
+.l .txt{position:absolute;top:150px;right:64px;width:720px;text-align:right}
+.l h1{font-size:92px}.l .chip{font-size:30px;margin-top:26px}
+.l .steps{margin-top:30px;font-size:22px;justify-content:flex-start;gap:10px}.l .steps span{padding:8px 14px}
+.l .phone{left:150px;top:60px;transform:scale(.5) rotate(-6deg);transform-origin:top left}
+.l .ok{font-size:32px;top:520px;left:40px;transform:rotate(-4deg)}
+</style></head><body>
+<div id="bg"><div class="dots"></div><div class="b1"></div><div class="b2"></div></div>
+<div class="wrap">
+  <div class="phone"><div class="screen"><img src="6-connected.png" style="clip-path:inset(0 0 470px 0)"><div style="position:absolute;left:0;right:0;top:700px;height:120px;background:linear-gradient(transparent,#fff)"></div><div style="position:absolute;left:0;right:0;top:810px;bottom:0;background:#fff"></div></div></div>
+  <div class="ok">✅ تم الربط</div>
+  <div class="logo"><img src="logo-light.svg"></div>
+  <div class="txt"><h1>كيف أربط<br><span class="grad">حساب إنستقرام؟</span></h1><div class="chip">⏱️ 4 خطوات — أقل من دقيقة</div>
+    <div class="steps" id="stepsL"><span><b>1</b> حساب احترافي</span><span><b>2</b> الربط</span><span><b>3</b> ربط عبر Instagram</span><span><b>4</b> السماح</span></div></div>
+  <div class="steps" id="stepsP"><span><b>1</b> حساب احترافي</span><span><b>2</b> الربط</span><span><b>3</b> ربط عبر Instagram</span><span><b>4</b> السماح</span></div>
+</div>
+<script>
+const land = location.search.includes("land");
+document.body.className = land ? "l" : "p";
+document.getElementById(land ? "stepsP" : "stepsL").remove();
+</script></body></html>
