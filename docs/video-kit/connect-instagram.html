@@ -1,0 +1,224 @@
+<!doctype html><html dir="ltr" lang="ar"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T;font-weight:400;src:url(thmanyahsans-Regular.woff2)}
+@font-face{font-family:T;font-weight:600;src:url(thmanyahsans-Medium.woff2)}
+@font-face{font-family:T;font-weight:700;src:url(thmanyahsans-Bold.woff2)}
+@font-face{font-family:T;font-weight:900;src:url(thmanyahsans-Black.woff2)}
+*{box-sizing:border-box}html,body{margin:0;width:1080px;height:1920px;overflow:hidden;font-family:T,sans-serif;color:#16122b}
+body{background:linear-gradient(180deg,#f8f7fd 0%,#f4f2fc 100%)}
+#bg{position:absolute;inset:0;overflow:hidden}
+#bg .dots{position:absolute;inset:0;background-image:radial-gradient(circle,#d9d4ea 2px,transparent 2.4px);background-size:52px 52px;opacity:.7}
+#bg .b1{position:absolute;width:760px;height:620px;top:-260px;right:-260px;border-radius:50%;background:#c9bcff;filter:blur(120px);opacity:.75}
+#bg .b2{position:absolute;width:520px;height:420px;bottom:-260px;left:-220px;border-radius:50%;background:#ffd9c2;filter:blur(110px);opacity:.45}
+.scene{position:absolute;inset:0;opacity:0;direction:rtl}
+.top{position:absolute;top:70px;left:0;right:0;display:flex;justify-content:center}.top img{height:64px}
+.head{position:absolute;top:190px;left:60px;right:60px;text-align:center}
+.chip{display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;border-radius:26px;color:#fff;font-weight:900;font-size:46px;background:linear-gradient(135deg,#7c3aed,#db2777 60%,#f97316)}
+.title{font-weight:900;font-size:60px;line-height:1.25;margin-top:22px}
+.sub{font-weight:600;font-size:33px;color:#5b5677;margin-top:14px;line-height:1.4}
+.phone{position:absolute;left:50%;top:530px;width:620px;height:1309px;margin-left:-310px;border-radius:64px;background:#0f0c1d;padding:14px;box-shadow:0 40px 80px rgba(80,40,140,.25)}
+.screen{position:relative;width:100%;height:100%;border-radius:52px;overflow:hidden;background:#fff}
+.screen img.shot{position:absolute;top:0;left:0;width:592px}
+.ring{position:absolute;border:6px solid #db2777;border-radius:22px;box-shadow:0 0 30px rgba(219,39,119,.55);display:none;z-index:5}
+.tap{position:absolute;width:70px;height:70px;border-radius:50%;background:rgba(219,39,119,.28);border:4px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none;z-index:6}
+.dotsnav{position:absolute;bottom:50px;left:0;right:0;display:flex;justify-content:center;gap:14px}
+.dotsnav i{width:16px;height:16px;border-radius:8px;background:#d9d2ee;display:block}.dotsnav i.on{width:44px;background:linear-gradient(90deg,#7c3aed,#f97316)}
+.typed{position:absolute;display:flex;align-items:center;font-size:25px;color:#16122b;background:#fff;z-index:4}
+.caret{display:inline-block;width:3px;height:30px;background:#7c3aed;margin:0 2px}
+/* intro */
+#intro .big{position:absolute;top:640px;left:0;right:0;text-align:center}#intro .big img{width:560px}
+#intro .q{position:absolute;top:1010px;left:70px;right:70px;text-align:center;font-weight:900;font-size:76px;line-height:1.25}
+#intro .s{position:absolute;top:1230px;left:70px;right:70px;text-align:center;font-weight:600;font-size:40px;color:#6b6689}
+/* instagram mock */
+.ig{position:absolute;inset:0;background:#fff;opacity:0}
+.ig .bar{height:120px;display:flex;align-items:center;justify-content:space-between;padding:40px 30px 0;font-weight:700;font-size:32px}
+.ig .bar .ic{display:flex;gap:26px;font-size:40px;direction:ltr}
+.ig .ttl{padding:40px 30px 10px;font-weight:900;font-size:34px;display:flex;align-items:center;gap:16px}
+.ig .row{display:flex;align-items:center;gap:22px;padding:20px 30px;position:relative}
+.ig .row .i{width:52px;height:52px;border-radius:14px;background:#f1f1f4;display:flex;align-items:center;justify-content:center;font-size:28px;flex:none}
+.ig .row b{display:block;font-size:29px;font-weight:600}
+.ig .row small{display:block;font-size:22px;color:#8a8a95;direction:ltr;text-align:right;margin-top:2px;font-family:sans-serif}
+.ig .sec{padding:26px 30px 6px;font-size:23px;color:#8a8a95;font-weight:700}
+.ig .prof{display:flex;align-items:center;gap:40px;padding:30px}
+.ig .av{width:150px;height:150px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#db2777,#f97316);padding:6px}
+.ig .av div{width:100%;height:100%;border-radius:50%;background:#fff url(mark.svg) center/70% no-repeat}
+.ig .st{display:flex;gap:34px;text-align:center;font-size:24px;color:#555}.ig .st b{display:block;font-size:32px;color:#111}
+.ig .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:30px 0}.ig .grid i{aspect-ratio:1;background:linear-gradient(135deg,#ece9f8,#f8eef2)}
+.ig .opt{margin:16px 30px;border:2px solid #e5e5ea;border-radius:20px;padding:24px;position:relative}
+.ig .opt b{font-size:30px}.ig .opt small{display:block;font-size:22px;color:#8a8a95;direction:ltr;text-align:right;font-family:sans-serif}
+.ig .note{margin:24px 30px;padding:20px;border-radius:18px;background:#f0fdf4;color:#166534;font-size:24px;font-weight:700;line-height:1.5}
+.ig .btnb{margin:20px 30px;height:84px;border-radius:16px;background:#0095f6;color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.crumb{position:absolute;left:0;right:0;top:445px;text-align:center;font-size:30px;font-weight:700;color:#7c3aed;opacity:0}
+.crumb small{display:block;font-size:22px;color:#8a85a3;font-weight:600;direction:ltr;margin-top:4px;font-family:sans-serif}
+/* meta mock */
+.mock{position:absolute;inset:0;background:#fafafa;padding:40px 34px;text-align:center}
+.mock .bar2{display:flex;align-items:center;justify-content:center;gap:10px;font-size:24px;color:#555;background:#eee;border-radius:30px;padding:12px;direction:ltr;font-family:sans-serif}
+.mock h3{font-size:40px;margin:60px 0 12px;font-weight:900}
+.mock p{font-size:26px;color:#666;margin:0 0 30px;line-height:1.5}
+.mock .f{position:relative;height:84px;border:2px solid #ddd;border-radius:16px;background:#fff;margin:18px 0;padding:0 24px;font-size:26px;color:#aaa;display:flex;align-items:center;justify-content:flex-start}
+.mock .f span.v{color:#111;direction:ltr}
+.mock .btn{height:90px;border-radius:18px;background:#0095f6;color:#fff;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:26px}
+.mock .perm{background:#fff;border:2px solid #e6e6e6;border-radius:20px;padding:20px;text-align:right;font-size:25px;line-height:1.7;margin-top:22px;color:#333}
+.lock{position:absolute;left:34px;right:34px;bottom:44px;background:#ecfdf5;border:2px solid #86efac;color:#065f46;border-radius:20px;padding:18px;font-size:25px;font-weight:700;line-height:1.5}
+/* end */
+#end img.sp{position:absolute;inset:0;width:1080px;height:1920px}
+#end .help{position:absolute;top:1170px;left:70px;right:70px;text-align:center}
+#end .h1{font-weight:900;font-size:64px}
+#end .h2{font-weight:600;font-size:37px;color:#5b5677;margin-top:18px;line-height:1.5}
+#end .mail{display:inline-block;margin-top:28px;padding:18px 34px;border-radius:40px;background:linear-gradient(135deg,#7c3aed,#db2777 60%,#f97316);color:#fff;font-weight:700;font-size:36px;direction:ltr}
+html.land,html.land body{width:1920px;height:1080px}
+.land .top{left:auto;right:120px;top:56px}
+.land .head{top:250px;left:auto;right:120px;width:860px;text-align:right}
+.land .title{font-size:74px;margin-top:28px}.land .sub{font-size:38px;margin-top:18px}
+.land .crumb{top:auto;bottom:250px;left:auto;right:120px;width:860px;text-align:right;font-size:36px}.land .crumb small{font-size:26px}
+.land .phone{left:560px;top:540px;margin-left:-310px;margin-top:-654px}
+.land .dotsnav{bottom:60px;left:auto;right:120px;width:860px;justify-content:flex-start}
+.land #intro .big{top:210px}.land #intro .q{top:520px;font-size:84px}.land #intro .s{top:700px}
+.land #end img.sp{left:420px;right:auto;top:-575px;bottom:auto}
+.land #end .help{top:540px}
+.land #bg .b1{width:900px;height:700px}
+</style></head><body>
+<div id="bg"><div class="dots"></div><div class="b1"></div><div class="b2"></div></div>
+<div class="scene" id="intro"><div class="big"><img src="logo-light.svg"></div><div class="q">تبي تربط حساب إنستقرام؟</div><div class="s">4 خطوات بس — وأقل من دقيقة ⏱️</div></div>
+<div id="steps"></div>
+<div class="scene" id="end"><img class="sp" id="sp" src="p000.png">
+  <div class="help" id="help"><div class="h1">عندك استفسار؟ 💬</div><div class="h2">فريق شيّك في خدمتك<br>من صفحة الدعم</div><div class="mail">support@shayyek.sa</div></div></div>
+<script>
+const LAND = location.search.includes("land");
+const S = LAND ? 0.74 : 1; // phone scale
+if (LAND) document.documentElement.classList.add("land");
+const W = 592 / 1080, C = 592 / 390; // screenshot px / CSS px -> screen px
+const IGS = [
+  `<div class="bar"><span>shayyek.sa ⌄</span><span class="ic"><span id="burger">☰</span><span>＋</span></span></div>
+   <div class="prof"><div class="av"><div></div></div><div class="st"><div><b>24</b>منشورات</div><div><b>1,250</b>متابعين</div><div><b>180</b>يتابع</div></div></div>
+   <div style="padding:0 30px;font-size:26px;font-weight:700">شيّك</div><div class="grid">${"<i></i>".repeat(9)}</div>`,
+  `<div class="ttl">→ الإعدادات والنشاط</div>
+   <div class="row"><span class="i">🔖</span><div><b>المحفوظات</b><small>Saved</small></div></div>
+   <div class="row"><span class="i">🕘</span><div><b>الأرشيف</b><small>Archive</small></div></div>
+   <div class="row"><span class="i">📊</span><div><b>نشاطك</b><small>Your activity</small></div></div>
+   <div class="sec">للمحترفين · For professionals</div>
+   <div class="row" id="acct"><span class="i">📈</span><div><b>نوع الحساب والأدوات</b><small>Account type and tools</small></div></div>
+   <div class="row"><span class="i">⭐</span><div><b>الاشتراكات</b><small>Subscriptions</small></div></div>`,
+  `<div class="ttl">→ نوع الحساب والأدوات</div>
+   <div class="sec">نوع الحساب · Account type</div>
+   <div class="row" id="switch"><span class="i">💼</span><div><b>التبديل إلى حساب احترافي</b><small>Switch to professional account</small></div></div>
+   <div class="row"><span class="i">🔐</span><div><b>خصوصية الحساب</b><small>Account privacy</small></div></div>`,
+  `<div class="ttl">→ نوع الحساب الاحترافي</div>
+   <div class="opt" id="biz"><b>أعمال 🛍️</b><small>Business</small></div>
+   <div class="opt"><b>صانع محتوى 🎬</b><small>Creator</small></div>
+   <div class="note">✅ مجاني — وتقدر ترجع لحسابك الشخصي متى ما تبغى</div>
+   <div class="btnb">التالي · Next</div>`,
+];
+const STEPS = [
+  { n: 1, t: "حوّل حسابك إلى «احترافي»", s: "من تطبيق إنستقرام — إذا حسابك احترافي تخطّ هذي الخطوة", ig: true, a: 4.65, b: 16.6 },
+  { n: 2, t: "افتح shayyek.sa وسجّل دخولك", s: "أو من تطبيق شيّك على أندرويد", img: "1-login.png", login: true, a: 16.6, b: 20.2 },
+  { n: 2, t: "من «المزيد» اختر «الربط»", s: "في الكمبيوتر تلقاه في القائمة الجانبية", img: "3-more.png", hi: [383, 1520, 314, 205], a: 20.2, b: 23.1, from: 1.2, tapAt: 1.9 },
+  { n: 3, t: "اضغط «ربط عبر Instagram»", s: "يفتح لك تسجيل الدخول الرسمي من Meta", img: "5-button.png", hi: [543, 1357, 446, 122], a: 23.1, b: 26.8, from: 1.4, tapAt: 2.4 },
+  { n: 4, t: "سجّل دخولك عند Meta ووافق", s: "كلمة المرور تنكتب عند Meta فقط — شيّك ما يطلبها أبدًا", mock: true, a: 26.8, b: 35.9 },
+  { n: 5, t: "تم الربط ✅", s: "يظهر حسابك وحالته «فعّال» — وجاهز لأول حملة", img: "6-connected.png", hi: [838, 968, 154, 60], crop: 1480, a: 35.9, b: 39.9, from: 0.8, noTap: true },
+];
+STEPS.forEach((s) => (s.dur = s.b - s.a));
+const box = document.getElementById("steps");
+STEPS.forEach((st, i) => {
+  const el = document.createElement("div"); el.className = "scene"; el.id = "st" + i;
+  let screen;
+  if (st.ig) screen = `<div class="ig" id="ig0" style="opacity:1">${IGS[0]}</div><img id="clip" src="v001.jpg" style="position:absolute;inset:0;width:592px;height:1281px;opacity:0"><div class="ig note" id="free" style="position:absolute;left:0;right:0;bottom:60px;top:auto;background:none;opacity:0"><div class="note" style="font-size:28px">✅ مجاني — وتقدر ترجع لحسابك الشخصي متى ما تبغى</div></div>`;
+  else if (st.mock) screen = `<div class="mock"><div class="bar2">🔒 instagram.com</div><h3>تسجيل الدخول</h3><p>صفحة Meta الرسمية — تفتح في متصفح جوالك</p>
+     <div class="f" id="mu"><span class="ph">اسم المستخدم</span><span class="v"></span></div><div class="f" id="mp"><span class="ph">كلمة المرور</span><span class="v"></span></div>
+     <div class="perm">✔ إدارة الرسائل<br>✔ إدارة التعليقات<br>✔ قراءة معلومات الحساب</div><div class="btn" id="allow">السماح</div></div>
+     <div class="lock">🔐 شيّك ما يشوف كلمة مرورك — الربط عبر Meta الرسمي</div>`;
+  else screen = `<img class="shot" src="${st.img}" style="${st.crop ? `clip-path:inset(0 0 ${(2338 - st.crop) * W}px 0)` : ""}">${st.crop ? `<div style="position:absolute;left:0;right:0;top:${st.crop * W - 120}px;height:120px;background:linear-gradient(transparent,#fff)"></div><div style="position:absolute;left:0;right:0;top:${st.crop * W}px;bottom:0;background:#fff"></div>` : ""}`
+    + (st.login ? `<div class="typed" id="lu" style="left:${20 * C + 3}px;top:${355 * C + 3}px;width:${350 * C - 6}px;height:${48 * C - 6}px;padding:0 19px;border-radius:24px;direction:ltr"></div>
+                   <div class="typed" id="lp" style="left:${20 * C + 60}px;top:${447.5 * C + 3}px;width:${350 * C - 66}px;height:${48 * C - 6}px;padding:0 19px;direction:rtl;letter-spacing:4px"></div>` : "");
+  el.innerHTML = `<div class="top"><img src="logo-light.svg"></div>
+   <div class="head"><span class="chip">${st.n === 5 ? "✓" : st.n}</span><div class="title">${st.t}</div><div class="sub">${st.s}</div></div>
+   ${st.ig ? `<div class="crumb" id="crumb"></div>` : ""}
+   <div class="phone"><div class="screen">${screen}<div class="ring"></div><div class="tap"></div></div></div>
+   <div class="dotsnav">${[1, 2, 3, 4].map((j) => `<i class="${j === st.n || (st.n === 5) ? "on" : ""}"></i>`).join("")}</div>`;
+  box.appendChild(el);
+});
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const INTRO = 4.65, END0 = 39.9, starts = STEPS.map((s) => s.a);
+window.TOTAL = 45.4;
+const rel = (el, scr) => { const a = el.getBoundingClientRect(), b = scr.getBoundingClientRect(); return [(a.left - b.left) / S, (a.top - b.top) / S, a.width / S, a.height / S]; };
+function point(el, hiScreen, lt, from, tapAt, noTap) {
+  const ring = el.querySelector(".ring"), tap = el.querySelector(".tap");
+  if (!hiScreen) { ring.style.display = tap.style.display = "none"; return; }
+  const k = ease((lt - from) / 0.35);
+  ring.style.display = k > 0 ? "block" : "none"; ring.style.opacity = k;
+  const pad = 10 + 5 * Math.sin(lt * 6), [x, y, w, h] = hiScreen;
+  Object.assign(ring.style, { left: x - pad + "px", top: y - pad + "px", width: w + 2 * pad + "px", height: h + 2 * pad + "px" });
+  const tk = clamp((lt - from - 0.4) / 0.5);
+  tap.style.display = tk > 0 && !noTap ? "block" : "none";
+  const cx = x + Math.min(w * 0.2, 60) - 35, cy = y + h - 30;
+  tap.style.left = cx + 40 * (1 - ease(tk)) + "px"; tap.style.top = cy + 120 * (1 - ease(tk)) + "px";
+  const press = clamp((lt - tapAt) / 0.25);
+  tap.style.transform = `scale(${1 - 0.25 * Math.sin(Math.PI * press)})`;
+}
+const typeText = (s, lt, a, b) => s.slice(0, Math.round(s.length * clamp((lt - a) / (b - a))));
+const caret = (lt, a, b) => (lt >= a - 0.3 && lt <= b + 0.4 && Math.floor(lt * 3) % 2 === 0 ? '<span class="caret"></span>' : "");
+window.render = (t) => {
+  const show = (el, o) => (el.style.opacity = o);
+  const ii = document.getElementById("intro");
+  show(ii, t < INTRO ? Math.min(ease(t / 0.5), 1 - clamp((t - INTRO + 0.35) / 0.35)) : 0);
+  ii.querySelector(".big").style.transform = `scale(${0.85 + 0.15 * ease(t / 0.8)})`;
+  ii.querySelector(".q").style.opacity = ease((t - 0.3) / 0.6);
+  ii.querySelector(".q").style.transform = `translateY(${40 * (1 - ease((t - 0.3) / 0.6))}px)`;
+  ii.querySelector(".s").style.opacity = ease((t - 2.0) / 0.4);
+  STEPS.forEach((st, i) => {
+    const el = document.getElementById("st" + i), lt = t - starts[i], on = lt >= 0 && lt < st.dur;
+    show(el, on ? Math.min(ease(lt / 0.35), 1 - clamp((lt - st.dur + 0.3) / 0.3)) : 0);
+    if (!on) return;
+    el.querySelector(".head").style.transform = `translateY(${30 * (1 - ease(lt / 0.5))}px)`;
+    el.querySelector(".phone").style.transform = `scale(${S}) translateY(${120 * (1 - ease((lt - 0.1) / 0.7))}px)`;
+    const scr = el.querySelector(".screen");
+    if (st.ig) {
+      const cr = el.querySelector("#crumb"), clip = el.querySelector("#clip"), prof = el.querySelector("#ig0");
+      const setCrumb = (ar, en, at) => { cr.innerHTML = `${ar}<small>${en}</small>`; cr.style.opacity = ease((lt - at) / 0.3); };
+      if (lt < 4.35) {
+        prof.style.opacity = 1; clip.style.opacity = 0;
+        const r = rel(el.querySelector("#burger"), scr);
+        point(el, [r[0] - 8, r[1] - 4, r[2] + 16, r[3] + 8], lt, 3.75, 4.25);
+        if (lt >= 3.75) setCrumb("☰ القائمة", "Menu", 3.75); else cr.style.opacity = 0;
+      } else {
+        const u = lt - 4.35;
+        prof.style.opacity = 1 - ease(u / 0.25); clip.style.opacity = ease(u / 0.25);
+        const ct = u < 0.9 ? u * (4.6 / 0.9) : u < 2.6 ? 4.6 + (u - 0.9) * (1.6 / 1.7) : u < 3.1 ? 6.2 + (u - 2.6) * 1.2 : Math.min(10.05, 6.8 + (u - 3.1));
+        clip.src = `v${String(Math.min(303, Math.max(1, Math.round(ct * 29.97) + 1))).padStart(3, "0")}.jpg`;
+        if (u < 0.9) { setCrumb("الإعدادات والنشاط", "Settings and activity", 4.35); point(el, null, u); }
+        else if (u < 3.1) { setCrumb("نوع الحساب والأدوات", "Account type and tools", 5.25); point(el, [10, 980, 572, 96], u, 0.9, 2.45); }
+        else { setCrumb("تبديل إلى حساب احترافي", "Switch to professional account", 7.45); point(el, [10, 117, 572, 96], u, 3.1, 4.0); }
+        el.querySelector("#free").style.opacity = ease((lt - 9.25) / 0.4);
+      }
+      return;
+    }
+    if (st.login) {
+      const u = typeText("shayyek.sa", lt, 1.2, 2.2), p = "•".repeat(typeText("12345678", lt, 2.4, 3.0).length);
+      el.querySelector("#lu").innerHTML = (u || '<span style="color:#9b97ad">shayyek.sa</span>') + (lt < 2.3 ? caret(lt, 1.2, 2.2) : "");
+      el.querySelector("#lu").style.opacity = lt > 1.1 ? 1 : 0;
+      el.querySelector("#lp").innerHTML = p + (lt >= 2.3 ? caret(lt, 2.4, 3.0) : "");
+      point(el, [20 * C, 512 * C, 350 * C, 44 * C], lt, 3.0, 3.35);
+      return;
+    }
+    if (st.mock) {
+      const mu = el.querySelector("#mu"), mp = el.querySelector("#mp");
+      const u = typeText("shayyek.sa", lt, 2.9, 3.8), p = "•".repeat(typeText("12345678", lt, 3.95, 4.55).length);
+      mu.querySelector(".v").innerHTML = u + (lt < 3.85 ? caret(lt, 2.9, 3.8) : ""); mu.querySelector(".ph").style.display = u ? "none" : "";
+      mp.querySelector(".v").innerHTML = p + (lt >= 3.85 ? caret(lt, 3.95, 4.55) : ""); mp.querySelector(".ph").style.display = p ? "none" : "";
+      mu.style.borderColor = lt > 2.75 && lt < 3.85 ? "#0095f6" : "#ddd"; mp.style.borderColor = lt >= 3.85 && lt < 4.8 ? "#0095f6" : "#ddd";
+      const lk = el.querySelector(".lock"), g = Math.sin(Math.PI * clamp((lt - 6.35) / 2.5)); lk.style.transform = `scale(${1 + 0.04 * g})`; lk.style.boxShadow = `0 0 ${40 * g}px rgba(34,197,94,${0.55 * g})`;
+      point(el, rel(el.querySelector("#allow"), scr), lt, 4.85, 5.45);
+      return;
+    }
+    point(el, st.hi && st.hi.map((v) => v * W), lt, st.from ?? 1.0, st.tapAt ?? 2.2, st.noTap);
+  });
+  const et = t - END0, en = document.getElementById("end");
+  show(en, et >= 0 ? ease(et / 0.3) : 0);
+  if (et >= 0) {
+    document.getElementById("sp").src = `p${String(Math.min(180, Math.floor(et * 60))).padStart(3, "0")}.png`;
+    const h = document.getElementById("help"), ht = et - 0.15; // with «عندك استفسار؟» in the voice, while the logo is still landing
+    h.style.opacity = ease(ht / 0.6); h.style.transform = `translateY(${50 * (1 - ease(ht / 0.6))}px)`;
+  }
+};
+</script></body></html>
