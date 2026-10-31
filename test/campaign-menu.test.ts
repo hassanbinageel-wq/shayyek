@@ -1,6 +1,6 @@
 import { exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { DB, MockMeta, commentPayload, deliver, messagePayload, resetDb, seedAccount, seedCampaign } from "./helpers";
+import { DB, MockMeta, commentPayload, deliver, messagePayload, resetDb, seedAccount, seedCampaign, setCtxExtra } from "./helpers";
 import { campaignInputSchema } from "../src/shared/schemas";
 import type { DmMenu, MenuNode } from "../src/shared/menu";
 
@@ -80,6 +80,33 @@ describe("«قائمة تفاعلية»: a campaign's own menu from a comment", 
     const id2 = await menuCampaign({ ...ROOT, children: [{ ...ROOT.children[0], text: "سعر الحملة الثانية" }] });
     await deliver(messagePayload({ postback: `hsn:cmenu:${id2}:price001` }), meta);
     expect(meta.calls.filter((c) => c.kind === "dm").at(-1)!.msg!.text).toBe("سعر الحملة الثانية");
+  });
+
+  it("counts taps on the menu's links (the root's and an option's) on the person's conversation", async () => {
+    setCtxExtra({ publicBaseUrl: BASE });
+    const tree: MenuNode = {
+      ...ROOT,
+      link: { title: "المتجر", url: "https://shop.example/root" },
+      children: [{ ...ROOT.children[0], link: { title: "اطلب", url: "https://shop.example/price" } }, ROOT.children[1]],
+    };
+    const id = await menuCampaign(tree);
+    const meta = new MockMeta();
+    await deliver(commentPayload({ text: "قائمة", commentId: "c_links" }), meta);
+    const rootLink = meta.calls.filter((c) => c.kind === "private_reply")[0].msg!.menu!.link!.url;
+    expect(rootLink).toMatch(new RegExp(`^${BASE}/l/[A-Za-z0-9_-]{16,}\\?k=root0001$`));
+    await deliver(messagePayload({ postback: `hsn:cmenu:${id}:price001` }), meta);
+    const optLink = meta.calls.filter((c) => c.kind === "dm").at(-1)!.msg!.menu!.link!.url;
+    expect(optLink).toMatch(/\?k=price001$/);
+    const tap = (u: string, ua = "Mozilla/5.0 (iPhone) Instagram 300.0") => SELF.fetch(new Request(u, { headers: { "User-Agent": ua }, redirect: "manual" }));
+    expect((await tap(rootLink)).headers.get("Location")).toBe("https://shop.example/root");
+    expect((await tap(optLink)).headers.get("Location")).toBe("https://shop.example/price");
+    await tap(optLink, "facebookexternalhit/1.1"); // link preview: not counted
+    const f = await DB.prepare("SELECT link_clicks FROM conversation_flows WHERE campaign_id = ?").bind(id).first<{ link_clicks: number }>();
+    expect(f!.link_clicks).toBe(2);
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM link_clicks").first<{ n: number }>())!.n).toBe(2);
+    // a key that is not in the tree (or malformed) is refused
+    expect((await tap(rootLink.replace("root0001", "nope0000"))).status).toBe(404);
+    expect((await tap(rootLink.replace("root0001", "../x"))).status).toBe(404);
   });
 
   it("no tree saved → the campaign's content message", async () => {

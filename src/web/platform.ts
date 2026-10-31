@@ -74,8 +74,8 @@ export async function initNative(handlers: { onDeepLink: (url: string) => void; 
   App.addListener("backButton", () => {
     if (!handlers.onBack()) App.exitApp();
   });
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => undefined);
+  // Light only: dark icons on the light status bar.
+  StatusBar.setStyle({ style: Style.Light }).catch(() => undefined);
   await SplashScreen.hide().catch(() => undefined);
 }
 

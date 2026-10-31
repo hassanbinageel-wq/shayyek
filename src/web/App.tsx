@@ -79,34 +79,18 @@ export function Link({ to, children, ...rest }: { to: string; children: ReactNod
 }
 
 // ---------------- theme ----------------
-type Theme = "system" | "light" | "dark";
-function applyTheme(t: Theme) {
-  const dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.classList.toggle("dark", dark);
-}
+// The site and the app are light only (the owner removed the dark mode).
+type Theme = "light";
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      return (localStorage.getItem("hsn_theme") as Theme) || "system";
-    } catch {
-      return "system";
-    }
-  });
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const h = () => applyTheme(theme);
-    mq.addEventListener("change", h);
-    return () => mq.removeEventListener("change", h);
-  }, [theme]);
-  useEffect(() => {
-    applyTheme(theme);
+    document.documentElement.classList.remove("dark");
     try {
-      localStorage.setItem("hsn_theme", theme);
+      localStorage.removeItem("hsn_theme");
     } catch {
       /* ignore */
     }
-  }, [theme]);
-  return [theme, setTheme];
+  }, []);
+  return ["light", () => undefined];
 }
 
 const NAV_GROUPS: Array<{ title: string; items: Array<{ to: string; label: string; icon: string }> }> = [
@@ -373,8 +357,6 @@ export function App() {
       <Link to={to} className={className} aria-current={isActive(to) ? "page" : undefined}>{children}</Link>
     );
   };
-  const nextTheme = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
-  const themeIcon = theme === "light" ? "sun" : theme === "dark" ? "moon" : "grid";
   const acc = shell.account;
   return (
     <div className="min-h-screen lg:flex">
@@ -444,9 +426,6 @@ export function App() {
             <div className="font-display hidden truncate text-base font-bold lg:block">{current?.label ?? "Shayyek"}</div>
           </div>
           <div className="mr-auto flex items-center gap-2">
-            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)]" title="المظهر" aria-label="تبديل المظهر" onClick={() => setTheme(nextTheme)}>
-              <Icon name={themeIcon} size={18} />
-            </button>
             <button className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] ${tips ? "bg-violet-500/10 text-violet-600 dark:text-violet-300" : "bg-[var(--surface)] text-[var(--text-2)]"}`} title={tips ? "إخفاء الشروحات (?)" : "إظهار الشروحات (?)"} aria-label="إظهار أو إخفاء الشروحات" aria-pressed={tips} onClick={() => { setTipsShown(!tips); setTips(!tips); toast(tips ? "أخفينا الشروحات (?)" : "الشروحات (?) ظاهرة"); }}>
               <Icon name="help" size={18} />
             </button>
@@ -526,7 +505,7 @@ export function App() {
           </div>
         </div>
       )}
-      {route !== "/support" && !(isOwner && route === "/owner") && <HelpWidget center={supportCenter} isOwner={isOwner} />}
+      {route === "/" && <HelpWidget center={supportCenter} isOwner={isOwner} />}
       {!isOwner && <PromoLayer route={route} />}
       <ToastHost />
       {bioOffer && (

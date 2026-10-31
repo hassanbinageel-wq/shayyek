@@ -71,15 +71,9 @@ function shouldShow(): boolean {
 // Decided once when the app loads (not per render).
 const SHOW_ON_LOAD = shouldShow();
 
-/** The app's theme as saved (the page applies it a moment later). */
+/** Light only (no dark mode). */
 function isDark(): boolean {
-  let t = "system";
-  try {
-    t = localStorage.getItem("hsn_theme") || "system";
-  } catch {
-    /* private mode */
-  }
-  return t === "dark" || (t === "system" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  return false;
 }
 
 export function SplashIntro() {

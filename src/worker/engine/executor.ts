@@ -432,6 +432,17 @@ async function trackLink(ctx: EngineContext, l: Loaded, msg: OutgoingMessage): P
   if (row?.link_token) msg.linkButton = { ...msg.linkButton, url: `${ctx.publicBaseUrl.replace(/\/+$/, "")}/l/${row.link_token}` };
 }
 
+/**
+ * Click tracking for a campaign's «قائمة تفاعلية»: the node's link button points to /l/<flow token>?k=<node key>;
+ * the redirect looks the link up in the campaign's tree (never trusts a URL from the request).
+ */
+async function trackMenuLink(ctx: EngineContext, flowId: number, trackClicks: number, nodeKey: string, msg: OutgoingMessage): Promise<void> {
+  if (!msg.menu?.link || !trackClicks || !ctx.publicBaseUrl) return;
+  await run(ctx.db, "UPDATE conversation_flows SET link_token = COALESCE(link_token, ?), link_url = COALESCE(link_url, ?), updated_at = ? WHERE id = ?", randomToken(16), msg.menu.link.url, ctx.now(), flowId);
+  const row = await first<{ link_token: string }>(ctx.db, "SELECT link_token FROM conversation_flows WHERE id = ?", flowId);
+  if (row?.link_token) msg.menu = { ...msg.menu, link: { ...msg.menu.link, url: `${ctx.publicBaseUrl.replace(/\/+$/, "")}/l/${row.link_token}?k=${encodeURIComponent(nodeKey)}` } };
+}
+
 async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): Promise<ExecResult> {
   const l = await loadAll(ctx, job);
   if (!l) return cancelFlowAndJob(ctx, job, owner, null, "flow_missing");
@@ -507,7 +518,10 @@ async function execSendMessage(ctx: EngineContext, job: JobRow, owner: string): 
   if (isContent && l.campaign.send_menu) {
     const root = parseMenuRoot(l.campaign.menu_root);
     const ent = await getEntitlement(ctx.db, l.account.tenant_id, ctx.now());
-    if (root && (ent.owner || ent.limits.dm_menu || l.flow.is_demo === 1)) msg = menuMessage(root, l.campaign.id);
+    if (root && (ent.owner || ent.limits.dm_menu || l.flow.is_demo === 1)) {
+      msg = menuMessage(root, l.campaign.id);
+      await trackMenuLink(ctx, l.flow.id, l.campaign.track_clicks, root.key, msg);
+    }
   }
   if (isContent && msg.linkButton) await trackLink(ctx, l, msg);
   const token = await ctx.getAccessToken(l.account);
@@ -694,6 +708,15 @@ async function execMenuSend(ctx: EngineContext, job: JobRow, owner: string): Pro
   }
   if (!(await markExternalStart(ctx.db, job, owner, now))) return { outcome: "lease_lost" };
   const msg = menuMessage(node, p.campaign_id);
+  if (p.campaign_id && msg.menu?.link) {
+    // The person's latest conversation in this campaign carries the tap count.
+    const flow = await first<{ id: number; track_clicks: number }>(
+      ctx.db,
+      "SELECT f.id, c.track_clicks FROM conversation_flows f JOIN campaigns c ON c.id = f.campaign_id WHERE f.campaign_id = ? AND f.participant_id = ? AND c.tenant_id = ? ORDER BY f.id DESC LIMIT 1",
+      p.campaign_id, participant.id, account.tenant_id,
+    );
+    if (flow) await trackMenuLink(ctx, flow.id, flow.track_clicks, node.key, msg);
+  }
   const started = now;
   const r = await ctx.meta(account.is_demo === 1).sendMessage(token, account.ig_user_id, participant.igsid, msg);
   now = ctx.now();

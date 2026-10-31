@@ -95,7 +95,7 @@ import { DEFAULT_MESSAGE_TEMPLATES, OUT_OF_MESSAGES_TEMPLATE, type MessageTempla
 const MESSAGE_LINK_PATHS = MESSAGE_LINKS.map((l) => l.to) as [string, ...string[]];
 import { listPaymentMethods } from "./services/payments";
 import { parseFaqText } from "../shared/support";
-import { emptyMenu, extrasProblem, keywordsProblem, menuParts, menuProblem, type DmMenu, type MenuNode } from "../shared/menu";
+import { emptyMenu, extrasProblem, findNode, keywordsProblem, menuParts, menuProblem, parseMenuRoot, type DmMenu, type MenuNode } from "../shared/menu";
 import { syncMenuProfile } from "./services/menuProfile";
 import { ATTACH, attachKey, attachLimit, CATEGORIES, DEFAULT_RESPONSE_TIME, cardFontKey, deleteTenantCardFonts, deleteTenantSupportFiles, notifyState, ownMessage, setState, stateAfterCustomer, STATES, supportCenter, ticketNo, type Incident } from "./services/support";
 import { CYCLE_MS, usageCycle, codeHash, deleteTenantData, drawsThisMonth, extendPlan, getEntitlement, listPlans, monthlyMessages, newCode, parseLimits, PERIOD_DAYS, redeemCode, RedeemError } from "./services/plans";
@@ -359,8 +359,20 @@ export function createApp() {
     const token = c.req.param("token");
     const notFound = () => c.html('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;text-align:center;padding:3rem">الرابط غير صالح أو منتهي.</body>', 404);
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return notFound();
-    const row = await first<{ id: number; link_url: string | null; account_id: number }>(c.env.DB, "SELECT id, link_url, account_id FROM conversation_flows WHERE link_token = ?", token);
-    if (!row?.link_url || !/^https?:\/\//i.test(row.link_url)) return notFound();
+    const row = await first<{ id: number; link_url: string | null; account_id: number; menu_root: string | null }>(
+      c.env.DB,
+      "SELECT f.id, f.link_url, f.account_id, c.menu_root FROM conversation_flows f LEFT JOIN campaigns c ON c.id = f.campaign_id WHERE f.link_token = ?",
+      token,
+    );
+    if (!row) return notFound();
+    // A link inside a campaign's interactive menu: looked up in that campaign's tree by the option's key.
+    const k = c.req.query("k");
+    let target = row.link_url;
+    if (k !== undefined) {
+      const root = /^[A-Za-z0-9]{4,16}$/.test(k) ? parseMenuRoot(row.menu_root) : null;
+      target = (root && findNode(root, k)?.link?.url) || null;
+    }
+    if (!target || !/^https?:\/\//i.test(target)) return notFound();
     const ua = c.req.header("User-Agent") ?? "";
     const isBot = !ua || /facebookexternalhit|facebot|meta-external|bot\b|bot\/|crawler|spider|preview|slurp|whatsapp|telegram|curl|wget|python-requests|headless/i.test(ua);
     if (c.req.method === "GET" && !isBot) {
@@ -374,7 +386,7 @@ export function createApp() {
     }
     return new Response(null, {
       status: 302,
-      headers: { Location: row.link_url, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex" },
+      headers: { Location: target, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex" },
     });
   });
 

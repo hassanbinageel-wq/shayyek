@@ -102,17 +102,17 @@ export function StoreConnect() {
         </section>
 
         {/* Done (دن) — next */}
-        <section className="rounded-2xl border border-dashed border-[var(--border)] p-4" aria-label="دن">
+        <section className="rounded-2xl border border-dashed border-[var(--border)] p-4" aria-label="دن ستور">
           <header className="flex items-center gap-3">
             <img src="/integrations/done.png" alt="" className="size-12 shrink-0 rounded-2xl" />
             <div className="min-w-0 flex-1">
-              <div className="font-display text-base font-extrabold">دن</div>
-              <div className="muted text-xs" dir="ltr" style={{ textAlign: "right" }}>Done</div>
+              <div className="font-display text-base font-extrabold">دن ستور</div>
+              <div className="muted text-xs" dir="ltr" style={{ textAlign: "right" }}>Done Store</div>
             </div>
             <span className="chip bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">قريبًا</span>
           </header>
-          <p className="muted mt-3 text-xs leading-relaxed">ربط متاجر دن بنفس الطريقة: موافقة رسمية، قراءة فقط، وتحليل الطلبات والربح لكل حملة.</p>
-          <button className="btn btn-ghost mt-3 w-full" disabled>ربط دن (قريبًا)</button>
+          <p className="muted mt-3 text-xs leading-relaxed">ربط متاجر دن ستور بنفس الطريقة: موافقة رسمية، قراءة فقط، وتحليل الطلبات والربح لكل حملة.</p>
+          <button className="btn btn-ghost mt-3 w-full" disabled>ربط دن ستور (قريبًا)</button>
         </section>
       </div>
     </Card>
@@ -130,11 +130,11 @@ function SallaLogo() {
   );
 }
 
-/** Zid wordmark placeholder (text) until the official logo is added with the Zid integration. */
+/** Zid's icon (the mark only, without the wordmark). */
 function ZidLogo() {
   return (
-    <span className="grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-black tracking-tight text-white" style={{ background: "#5B2D90" }} dir="ltr" aria-hidden>
-      zid
+    <span className="grid size-12 shrink-0 place-items-center rounded-2xl" style={{ background: "#F1ECF8" }} aria-hidden>
+      <img src="/integrations/zid.png" alt="" className="size-8" />
     </span>
   );
 }
