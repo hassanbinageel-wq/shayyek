@@ -187,6 +187,12 @@ describe("customers (tenants) are isolated", () => {
     const pid = (await DB.prepare("SELECT id FROM participants LIMIT 1").first<any>()).id;
     expect((await call("/api/inbox", OWNER)).body).toHaveLength(1);
     expect((await call("/api/inbox", B)).body).toHaveLength(0);
+    // the unread badge: the person wrote after the last read → 1 for the owner, 0 for B; opening it clears it
+    await DB.prepare("UPDATE participants SET last_user_message_at = ?, inbox_read_at = NULL").bind(Date.now()).run();
+    expect((await call("/api/inbox-unread", OWNER)).body).toEqual({ unread: 1 });
+    expect((await call("/api/inbox-unread", B)).body).toEqual({ unread: 0 });
+    expect((await call(`/api/inbox/${pid}`, OWNER)).status).toBe(200);
+    expect((await call("/api/inbox-unread", OWNER)).body).toEqual({ unread: 0 });
     expect((await call(`/api/inbox/${pid}`, B)).status).toBe(404);
     expect((await call(`/api/inbox/${pid}/send`, B, "POST", { text: "hi" })).status).toBe(404);
   });

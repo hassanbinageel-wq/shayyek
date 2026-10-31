@@ -234,6 +234,7 @@ export function App() {
 
   useEffect(() => setMenuOpen(false), [route]);
   const [flash, setFlash] = useState(false);
+  const usageAt = useRef<{ at: number; req: any }>({ at: 0, req: null });
   const [shell, setShell] = useState<{ account?: any; unread: number; usagePct?: number; usageUsed?: number; cycle?: { used: number; limit: number | null; extra: number } | null }>({ unread: 0 });
   useEffect(() => {
     if (auth !== "in") return;
@@ -241,8 +242,11 @@ export function App() {
     const load = () => {
       Promise.all([
         api<any>("/api/account").then((r) => r.account).catch(() => null),
-        api<any[]>("/api/inbox").then((l) => l.reduce((a, c) => a + (c.unread || 0), 0)).catch(() => 0),
-        isOwner ? api<any>("/api/usage").then((r) => r.usage?.requests).catch(() => null) : Promise.resolve(null),
+        api<{ unread: number }>("/api/inbox-unread").then((r) => r.unread).catch(() => 0),
+        // The usage bar changes slowly: asked at most every 10 minutes (its counts read many rows).
+        isOwner && Date.now() - usageAt.current.at > 600_000
+          ? api<any>("/api/usage").then((r) => { usageAt.current = { at: Date.now(), req: r.usage?.requests }; return r.usage?.requests; }).catch(() => null)
+          : Promise.resolve(isOwner ? usageAt.current.req : null),
         isOwner ? Promise.resolve(null) : api<any>("/api/cycle").catch(() => null),
       ]).then(([account, unread, req, cycle]) => alive && setShell({ account, unread, usagePct: req?.pct, usageUsed: req?.used, cycle: cycle?.used == null ? null : cycle }));
     };

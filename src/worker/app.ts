@@ -4006,29 +4006,57 @@ export function createApp() {
   api.get("/inbox", async (c) => {
     const q = (c.req.query("q") ?? "").trim().replace(/^@/, "").slice(0, 60);
     const label = c.req.query("label") ?? "";
-    const params: unknown[] = [T(c)];
-    let where = `p.account_id IN ${TENANT_ACCOUNTS} AND p.is_demo = 0 AND p.last_message_at IS NOT NULL`;
+    const extra: unknown[] = [];
+    let where = "p.account_id = ? AND p.is_demo = 0 AND p.last_message_at IS NOT NULL";
     if (q) {
       where += " AND p.username LIKE ? ESCAPE '\\'";
-      params.push(`%${q.replace(/[%_\\]/g, (m) => "\\" + m)}%`);
+      extra.push(`%${q.replace(/[%_\\]/g, (m) => "\\" + m)}%`);
     }
     if (label === "none") where += " AND p.inbox_label IS NULL";
     else if (label) {
       // a built-in label or one the merchant typed
       where += " AND p.inbox_label = ?";
-      params.push(label.slice(0, 24));
+      extra.push(label.slice(0, 24));
     }
-    const rows = await all<any>(
-      c.env.DB,
-      `SELECT p.id, p.username, p.profile_pic_url, p.last_message_at, p.last_user_message_at, p.inbox_read_at, p.last_follow_status, p.inbox_label, p.inbox_label_source,
-              (SELECT m.text FROM messages m WHERE m.participant_id = p.id ORDER BY m.id DESC LIMIT 1) AS last_text,
-              (SELECT m.direction FROM messages m WHERE m.participant_id = p.id ORDER BY m.id DESC LIMIT 1) AS last_direction,
-              (SELECT COUNT(*) FROM messages m WHERE m.participant_id = p.id AND m.direction = 'in' AND m.created_at > COALESCE(p.inbox_read_at, 0)) AS unread
-         FROM participants p WHERE ${where} ORDER BY p.last_message_at DESC LIMIT 150`,
-      ...params,
+    // One indexed query per account (account_id, last_message_at): reads the newest conversations only, never
+    // every person the account ever talked to. Unread is counted only where the person wrote after the last read.
+    const accounts = await all<{ id: number }>(c.env.DB, "SELECT id FROM instagram_accounts WHERE tenant_id = ?", T(c));
+    const lists = await Promise.all(
+      accounts.map((a) =>
+        all<any>(
+          c.env.DB,
+          `SELECT p.id, p.username, p.profile_pic_url, p.last_message_at, p.last_user_message_at, p.inbox_read_at, p.last_follow_status, p.inbox_label, p.inbox_label_source,
+                  (SELECT m.text FROM messages m WHERE m.participant_id = p.id ORDER BY m.id DESC LIMIT 1) AS last_text,
+                  (SELECT m.direction FROM messages m WHERE m.participant_id = p.id ORDER BY m.id DESC LIMIT 1) AS last_direction,
+                  CASE WHEN p.last_user_message_at > COALESCE(p.inbox_read_at, 0)
+                       THEN (SELECT COUNT(*) FROM messages m WHERE m.participant_id = p.id AND m.direction = 'in' AND m.created_at > COALESCE(p.inbox_read_at, 0))
+                       ELSE 0 END AS unread
+             FROM participants p WHERE ${where} ORDER BY p.last_message_at DESC LIMIT 150`,
+          a.id,
+          ...extra,
+        ),
+      ),
     );
+    const rows = lists.flat().sort((x, y) => y.last_message_at - x.last_message_at).slice(0, 150);
     const now = Date.now();
     return c.json(rows.map((r) => ({ ...r, window_open: !!r.last_user_message_at && now - r.last_user_message_at < MESSAGING_WINDOW_MS })));
+  });
+  // The unread badge: conversations where the person wrote after the merchant last opened them (last 30 days).
+  // Cheap on purpose: the app asks every minute.
+  api.get("/inbox-unread", async (c) => {
+    const since = Date.now() - 30 * 86_400_000;
+    const accounts = await all<{ id: number }>(c.env.DB, "SELECT id FROM instagram_accounts WHERE tenant_id = ?", T(c));
+    let unread = 0;
+    for (const a of accounts) {
+      const r = await first<{ n: number }>(
+        c.env.DB,
+        "SELECT COUNT(*) AS n FROM participants WHERE account_id = ? AND last_user_message_at > ? AND is_demo = 0 AND last_user_message_at > COALESCE(inbox_read_at, 0)",
+        a.id,
+        since,
+      );
+      unread += r?.n ?? 0;
+    }
+    return c.json({ unread });
   });
   // Fills missing / expired profile pictures (bounded batch; the client calls it when the inbox opens).
   api.post("/inbox/avatars", async (c) => {

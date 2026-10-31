@@ -27,7 +27,7 @@ export async function systemIssues(db: D1Database, now = Date.now(), prevKeys: s
             COUNT(CASE WHEN j.status = 'accepted' THEN 1 END) AS ok,
             COUNT(DISTINCT CASE WHEN j.status IN ('failed','uncertain') THEN a.tenant_id END) AS tenants
        FROM action_jobs j JOIN instagram_accounts a ON a.id = j.account_id
-      WHERE j.is_demo = 0 AND j.updated_at >= ?`,
+      WHERE j.status IN ('failed', 'uncertain', 'accepted') AND j.updated_at >= ? AND j.is_demo = 0`, // uses (status, updated_at)
     since,
   );
   if (jobs && jobs.failed >= 8 && jobs.failed >= jobs.ok && (jobs.tenants >= 2 || jobs.failed >= 15)) {
