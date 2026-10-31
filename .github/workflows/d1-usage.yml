@@ -1,0 +1,37 @@
+# Read-only: which D1 queries read the most rows (Cloudflare GraphQL analytics; does not use D1 reads).
+name: D1 usage (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  usage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Top queries by rows read
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          since=$(date -u -d '-3 days' +%Y-%m-%dT00:00:00Z); today=$(date -u +%Y-%m-%dT00:00:00Z); now=$(date -u +%Y-%m-%dT%H:%M:%SZ); d3=$(date -u -d '-6 days' +%Y-%m-%d)
+          node -e '
+            const [acc, since, today, now, d3] = process.argv.slice(1);
+            const q = `query($acc:String!,$since:Time!,$today:Time!,$now:Time!,$d3:Date!){viewer{accounts(filter:{accountTag:$acc}){
+              days: d1AnalyticsAdaptiveGroups(limit:10, filter:{date_geq:$d3}, orderBy:[date_ASC]){ sum{ readQueries writeQueries rowsRead rowsWritten } dimensions{ date } }
+              todayTop: d1QueriesAdaptiveGroups(limit:25, filter:{datetime_geq:$today, datetime_leq:$now}, orderBy:[sum_rowsRead_DESC]){ count sum{ rowsRead rowsWritten } dimensions{ query } }
+            }}}`;
+            fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { Authorization: "Bearer " + process.env.CLOUDFLARE_API_TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc, since, today, now, d3 } }) })
+              .then(r => r.json()).then(j => {
+                if (j.errors) console.log("errors:", JSON.stringify(j.errors).slice(0, 1500));
+                const a = j.data?.viewer?.accounts?.[0]; if (!a) return;
+                console.log("=== per day"); for (const d of a.days) console.log(d.dimensions.date, JSON.stringify(d.sum));
+                console.log("=== today top queries by rows read");
+                for (const t of a.todayTop) console.log(String(t.sum.rowsRead).padStart(10), "rows |", String(t.count).padStart(7), "runs |", t.dimensions.query.replace(/\s+/g, " ").slice(0, 400));
+              });
+          ' "$CLOUDFLARE_ACCOUNT_ID" "$since" "$today" "$now" "$d3"
