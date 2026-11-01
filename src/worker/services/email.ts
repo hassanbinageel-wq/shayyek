@@ -1,6 +1,7 @@
 import type { Env } from "../env";
 import { getSetting, setSetting } from "../lib/db";
 import { sanitize } from "../meta/client";
+import { notify } from "./notify";
 
 /**
  * Transactional email through Resend (resend.com — free up to 3,000 emails a month / 100 a day).
@@ -27,26 +28,28 @@ async function post(env: Env, from: string, m: { to: string; subject: string; te
 }
 
 /**
- * Sends from EMAIL_FROM; when Resend refuses that sender (e.g. a domain not verified for this API key) and
- * EMAIL_FROM_FALLBACK is set, retries once from the fallback. The last failure is kept for the owner's diagnostics.
+ * Sends from EMAIL_FROM only (no other sender). A failure is kept for the owner's diagnostics and the owner is told
+ * (bell + Telegram), at most once an hour.
  */
 export async function sendEmail(env: Env, m: { to: string; subject: string; text: string; html: string }): Promise<{ ok: boolean; error?: string }> {
   if (!env.RESEND_API_KEY) return { ok: false, error: "email_not_configured" };
   const from = env.EMAIL_FROM || DEFAULT_FROM;
   // The logo at the top of the layout is a hosted image (mail apps block embedded SVG and most inline images).
   m = { ...m, html: m.html.replaceAll(LOGO_PLACEHOLDER, `${(env.PUBLIC_BASE_URL || "https://shayyek.sa").replace(/\/$/, "")}/brand/logo-email.png`) };
-  let r = await post(env, from, m);
-  if (!r.ok && r.status && r.status >= 400 && r.status < 500 && r.status !== 429 && env.EMAIL_FROM_FALLBACK && env.EMAIL_FROM_FALLBACK !== from) {
-    await noteEmailError(env, `${from} → ${r.error}`);
-    r = await post(env, env.EMAIL_FROM_FALLBACK, m);
-  }
-  if (!r.ok) await noteEmailError(env, r.error ?? "unknown");
+  const r = await post(env, from, m);
+  if (!r.ok) await noteEmailError(env, from, r.error ?? "unknown");
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
-async function noteEmailError(env: Env, error: string): Promise<void> {
+const ALERT_EVERY_MS = 3_600_000;
+
+async function noteEmailError(env: Env, from: string, error: string): Promise<void> {
   console.error("email failed", error);
+  const prev = await lastEmailError(env).catch(() => null);
   await setSetting(env.DB, 1, "email_last_error", { at: Date.now(), error }).catch(() => undefined);
+  if (prev && Date.now() - prev.at < ALERT_EVERY_MS) return;
+  const sender = from.match(/<([^>]+)>/)?.[1] ?? from;
+  await notify(env, 1, "system", `📧 فشل إرسال إيميل من ${sender}\nالسبب: ${error.slice(0, 300)}\nإيميلات الاستعادة والتأكيد ما توصل للعملاء لين ينحل. راجع النطاق والمفتاح في Resend.`);
 }
 
 /** The last Resend failure (owner diagnostics). */
