@@ -52,7 +52,7 @@ export function SimulatorPage() {
   const [simTab, setSimTab] = useState<"campaigns" | "menu">(() => (location.hash.includes("tab=menu") ? "menu" : "campaigns"));
   const [campaignId, setCampaignId] = useState<number | "">("");
   const [event, setEvent] = useState("comment");
-  const [text, setText] = useState("أبغى الكورس");
+  const [text, setText] = useState("");
   const [scenario, setScenario] = useState("non_follower_then_follow");
   const [isReply, setIsReply] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -195,7 +195,7 @@ export function SimulatorPage() {
               </div>
             </div>
             {event !== "story_mention" && (
-              <Field label={event === "comment" ? "نص التعليق" : "نص الرد"}><input className="input" value={text} onChange={(e) => setText(e.target.value)} /></Field>
+              <Field label={event === "comment" ? "نص التعليق" : "نص الرد"}><input className="input" placeholder={event === "comment" ? "اكتب التعليق كما يكتبه الشخص" : "اكتب الرد كما يكتبه الشخص"} value={text} onChange={(e) => setText(e.target.value)} /></Field>
             )}
             {event === "comment" && (
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-violet-600" checked={isReply} onChange={(e) => setIsReply(e.target.checked)} /> تعليق متفرع (رد على تعليق آخر)</label>
