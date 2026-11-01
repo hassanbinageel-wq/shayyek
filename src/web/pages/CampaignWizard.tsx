@@ -233,8 +233,11 @@ const firstRoot = (): MenuNode => ({
   children: [{ key: newKey(), label: "", text: "", link: null, style: "buttons", children: [] }],
 });
 
-/** Step ids shown: the follow-requirement messages (6, 7) only when the requirement is on. */
-const stepIds = (gated: boolean) => (gated ? STEPS.map((_, i) => i) : STEPS.map((_, i) => i).filter((i) => i !== 6 && i !== 7));
+/**
+ * Step ids shown: the follow-requirement messages (6, 7) only when the requirement is on. Step 11 (preview and
+ * simulation) was removed: the message preview stays beside the steps, and the simulator has its own page.
+ */
+const stepIds = (gated: boolean) => STEPS.map((_, i) => i).filter((i) => i !== 11 && (gated || (i !== 6 && i !== 7)));
 
 export function CampaignWizard({ id }: { id: number | null }) {
   const [form, setForm] = useState<Form>({ ...EMPTY, timezone: currentTz() });
@@ -735,41 +738,6 @@ export function CampaignWizard({ id }: { id: number | null }) {
             <Toggle checked={form.process_old_events} onChange={(v) => set("process_old_events", v)} label={<span className="inline-flex items-center gap-1.5">معالجة الأحداث الأقدم من وقت التفعيل<InfoDot text="افتراضيًا الحملة ترد فقط على التعليقات اللي انكتبت بعد ما فعّلتها. لو فعّلت هذا الخيار، ترد أيضًا على تعليقات انكتبت قبل التفعيل إذا وصلت للنظام متأخرة (مثلًا عبر «استرجاع التعليقات الفائتة»). Meta تسمح بالرد الخاص على التعليق خلال 7 أيام فقط من كتابته. خلّه مطفأ إلا لو تبغى الحملة تلحق تعليقات قديمة." /></span>} description="افتراضيًا تُتجاهل." />
           </div>
         );
-      case 11: {
-        const link = form.final_url || "";
-        const strip = (t: string) => (link ? t.split(link).join("") : t);
-        const previews: Array<[string, string]> = [];
-        if (form.require_follow && isComment) previews.push(["رد خاص تمهيدي", strip(renderTemplate(form.opening_text, vars))]);
-        if (form.require_follow) {
-          previews.push(["طلب المتابعة", strip(renderTemplate(form.follow_request_text, vars))]);
-          previews.push(["تذكير", strip(renderTemplate(form.follow_reminder_text, vars))]);
-        }
-        previews.push(["المحتوى النهائي", renderTemplate(form.final_text, { ...vars, content_url: link }) + (link && !form.final_text.includes("{{content_url}}") ? `\n${link}` : "")]);
-        if (isComment && form.public_reply_enabled) previews.push([`الرد العام${publicVariants.length > 1 ? ` (1 من ${publicVariants.length} صيغ بالتناوب)` : ""}`, previewPublic]);
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {previews.map(([t, body]) => (
-                <div key={t} className="surface-2 rounded-xl p-3">
-                  <div className="muted text-xs font-bold">{t}</div>
-                  <div className="whitespace-pre-wrap">{body}</div>
-                </div>
-              ))}
-            </div>
-            <Card title="محاكاة (وضع تجريبي — لا يُرسل شيء حقيقي)">
-              <Field label="نص الحدث التجريبي"><input className="input" value={testText} onChange={(e) => setTestText(e.target.value)} /></Field>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className="btn btn-ghost" onClick={() => runSim(form.type, { follow: ["following"] }, true)}>حدث + متابع</button>
-                {form.require_follow && <button type="button" className="btn btn-ghost" onClick={() => runSim(form.type, { follow: ["not_following", "following"] }, true)}>حدث + غير متابع</button>}
-                {form.require_follow && isComment && <button type="button" className="btn btn-ghost" onClick={() => runSim("message", undefined, false, "ابدأ")}>الشخص يرد «ابدأ»</button>}
-                {form.require_follow && <button type="button" className="btn btn-ghost" onClick={() => runSim("verify_button", undefined)}>الشخص يضغط «تحقّق»</button>}
-              </div>
-              {sim && <SimResult sim={sim} />}
-              <p className="muted mt-2 text-xs">لتجربة سيناريوهات أكثر (فشل، تأخر، انتهاء النافذة) استخدم صفحة «المحاكاة». ملاحظة: الفاصل بين محاولات التحقق مطبّق في المحاكاة أيضًا.</p>
-            </Card>
-          </div>
-        );
-      }
       case 13:
         return (
           <div className="space-y-3">
@@ -972,7 +940,7 @@ export function CampaignWizard({ id }: { id: number | null }) {
           <Card title={labels[step]} action={<span className="chip bg-violet-500/10 text-violet-700 dark:text-violet-200">الخطوة {step + 1} من {labels.length}</span>}>
             {stepBody()}
           </Card>
-          <button type="button" className="btn btn-ghost w-full xl:hidden" onClick={() => setPreviewOpen(true)}><Icon name="eye" size={18} />معاينة الرسالة</button>
+          <button type="button" className="btn btn-ghost touch-only w-full xl:hidden" onClick={() => setPreviewOpen(true)}><Icon name="eye" size={18} />معاينة الرسالة</button>
           <div className="flex justify-between gap-2">
             <button className="btn btn-ghost" disabled={step === 0} onClick={() => setStep((st) => st - 1)}><Icon name="arrowL" size={18} className="rotate-180" />السابق</button>
             {step < labels.length - 1 && <button className="btn btn-primary" onClick={next}>التالي<Icon name="arrowL" size={18} /></button>}

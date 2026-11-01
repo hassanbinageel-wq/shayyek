@@ -4100,6 +4100,18 @@ export function createApp() {
     return c.json(rows);
   });
 
+  // Names of the built-in inbox labels as the merchant renamed them (empty = the default name).
+  const LABEL_KEYS = ["inquiry", "order", "complaint", "other"] as const;
+  api.get("/inbox-label-names", async (c) => c.json(await getSetting<Record<string, string>>(c.env.DB, T(c), "inbox_label_names", {})));
+  api.put("/inbox-label-names", async (c) => {
+    const p = await parseBody(c, z.object(Object.fromEntries(LABEL_KEYS.map((k) => [k, z.string().trim().max(24).optional()]))));
+    if (!p.ok) return p.res;
+    const names: Record<string, string> = {};
+    for (const k of LABEL_KEYS) if (p.data[k]) names[k] = p.data[k] as string;
+    await setSetting(c.env.DB, T(c), "inbox_label_names", names);
+    return c.json(names);
+  });
+
   // ---- Important notifications (the bell)
   api.get("/app-notifications", async (c) => {
     const [items, unread] = await Promise.all([

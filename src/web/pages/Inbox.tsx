@@ -2,9 +2,12 @@ import { DmMenuEditor, MenuHelp } from "../components/DmMenuEditor";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { askText } from "../components/Confirm";
-import { Alert, Badge, PageHeader, Spinner, fmtTime, toast } from "../components/ui";
+import { Alert, Badge, Modal, PageHeader, Spinner, fmtTime, toast } from "../components/ui";
 import { UserAvatar } from "../components/UserAvatar";
 import { Icon } from "../components/Icon";
+
+/** The built-in labels' default names; the merchant can rename them (shown everywhere in the inbox). */
+const DEFAULT_NAMES: Record<string, string> = { inquiry: "استفسار", order: "طلب", complaint: "شكوى", other: "أخرى" };
 
 export const LABELS: Record<string, { text: string; cls: string; icon: string }> = {
   inquiry: { text: "استفسار", icon: "❓", cls: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300" },
@@ -202,11 +205,33 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
   const [open, setOpen] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [editNames, setEditNames] = useState<Record<string, string> | null>(null);
+  // The merchant's names for the built-in labels.
+  for (const k of Object.keys(DEFAULT_NAMES)) LABELS[k].text = names[k] || DEFAULT_NAMES[k];
+  useEffect(() => {
+    api<Record<string, string>>("/api/inbox-label-names").then(setNames).catch(() => undefined);
+  }, []);
   // Labels the merchant typed themselves (anything that is not a built-in one).
   const custom = Object.keys(counts).filter((k) => k !== "none" && !LABELS[k]).sort();
-  const load = () => {
-    api<Array<{ label: string | null; n: number }>>("/api/inbox-labels").then((r) => setCounts(Object.fromEntries(r.map((x) => [x.label ?? "none", x.n])))).catch(() => undefined);
+  const lastCounts = useRef(0);
+  const load = (force = false) => {
+    // The counts per label change slowly: refreshed at most every 2 minutes (they read many rows).
+    if (force || Date.now() - lastCounts.current > 120_000) {
+      lastCounts.current = Date.now();
+      api<Array<{ label: string | null; n: number }>>("/api/inbox-labels").then((r) => setCounts(Object.fromEntries(r.map((x) => [x.label ?? "none", x.n])))).catch(() => undefined);
+    }
     return api<any[]>(`/api/inbox?q=${encodeURIComponent(q)}&label=${encodeURIComponent(label)}`).then(setList).catch((e) => toast(e.message, "bad"));
+  };
+  const saveNames = async () => {
+    if (!editNames) return;
+    try {
+      setNames(await api<Record<string, string>>("/api/inbox-label-names", { method: "PUT", body: editNames }));
+      setEditNames(null);
+      toast("تم حفظ أسماء التصنيفات");
+    } catch (e: any) {
+      toast(e.message, "bad");
+    }
   };
   // Fill missing / expired profile pictures once per visit (small batches, official User Profile API).
   useEffect(() => {
@@ -224,8 +249,8 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    load();
-    const t = setInterval(load, 20_000);
+    load(true);
+    const t = setInterval(() => load(), 20_000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, label]);
@@ -245,7 +270,25 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
                 {ic} {t}{k && counts[k] ? <span className="opacity-75"> {counts[k]}</span> : null}
               </button>
             ))}
+            <button type="button" className="chip surface-2 shrink-0" title="تعديل أسماء التصنيفات" aria-label="تعديل أسماء التصنيفات" onClick={() => setEditNames({ ...names })}>✏️</button>
           </div>
+          <Modal open={!!editNames} onClose={() => setEditNames(null)} title="أسماء التصنيفات">
+            {editNames && (
+              <div className="space-y-3">
+                <p className="muted text-sm">غيّر اسم أي تصنيف بالكلام اللي يناسبك. الفاضي يرجع للاسم الأصلي. التصنيف التلقائي يبقى يشتغل بنفس الطريقة.</p>
+                {Object.keys(DEFAULT_NAMES).map((k) => (
+                  <label key={k} className="block">
+                    <span className="mb-1 block text-sm font-semibold">{LABELS[k].icon} {DEFAULT_NAMES[k]}</span>
+                    <input className="input" maxLength={24} placeholder={DEFAULT_NAMES[k]} value={editNames[k] ?? ""} onChange={(e) => setEditNames({ ...editNames, [k]: e.target.value })} />
+                  </label>
+                ))}
+                <div className="flex justify-end gap-2">
+                  <button type="button" className="btn btn-ghost" onClick={() => setEditNames(null)}>إلغاء</button>
+                  <button type="button" className="btn btn-primary" onClick={saveNames}>حفظ</button>
+                </div>
+              </div>
+            )}
+          </Modal>
           {!list ? (
             <Spinner />
           ) : !list.length ? (
@@ -279,7 +322,7 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
           {open === null ? (
             <p className="muted py-10 text-center text-sm">اختر محادثة من القائمة.</p>
           ) : (
-            <Thread id={open} onSent={load} onBack={() => setOpen(null)} custom={custom} />
+            <Thread id={open} onSent={() => load(true)} onBack={() => setOpen(null)} custom={custom} />
           )}
         </div>
       </div>

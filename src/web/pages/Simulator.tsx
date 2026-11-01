@@ -10,7 +10,7 @@ import { REASONS } from "./Logs";
 import { MenuSimulator } from "../components/DmMenuEditor";
 
 /** The common cases shown first; the rest are under «سيناريوهات أخرى». */
-const MAIN_SCENARIOS = ["non_follower_then_follow", "known_follower", "verify_fails", "follower"];
+const MAIN_SCENARIOS = ["non_follower_then_follow", "known_follower", "follower"];
 
 type TimelineItem = { title: string; sub?: string; color: string };
 const DOT: Record<string, string> = { blue: "#3b82f6", orange: "#f59e0b", green: "#10b981", red: "#ef4444", violet: "#a855f7", gray: "#94a3b8" };
@@ -45,14 +45,6 @@ const SCENARIOS: Record<string, { label: string; script: any }> = {
   follower: { label: "أول مرة يتواصل · متابع", script: { follow: ["following"] } },
   known_follower: { label: "سبق وراسلك · متابع (يوصله المحتوى مباشرة)", script: { follow: ["following"], known: true } },
   known_non_follower: { label: "سبق وراسلك · غير متابع ثم يتابع", script: { follow: ["not_following", "following"], known: true } },
-  never_follows: { label: "يضغط «تابعت» دون متابعة", script: { follow: ["not_following"] } },
-  verify_fails: { label: "فشل التحقق (خطأ API)", script: { follow: ["temporary_error"] } },
-  verify_delayed: { label: "تأخر تحديث الحالة (غير معروف ثم متابع)", script: { follow: ["unknown", "following"] } },
-  unsupported: { label: "الميزة غير متاحة", script: { follow: ["unsupported"] } },
-  window_closed: { label: "انتهاء نافذة المراسلة", script: { follow: ["not_following", "following"], dm: "window_closed" } },
-  private_fail: { label: "فشل الرد الخاص", script: { privateReply: "fail" } },
-  public_fail: { label: "فشل الرد العام", script: { publicReply: "fail" } },
-  uncertain: { label: "انقطاع بعد الإرسال (غير مؤكد)", script: { privateReply: "uncertain", dm: "uncertain" } },
 };
 
 export function SimulatorPage() {

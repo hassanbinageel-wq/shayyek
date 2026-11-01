@@ -195,6 +195,11 @@ describe("customers (tenants) are isolated", () => {
     expect((await call("/api/inbox-unread", OWNER)).body).toEqual({ unread: 0 });
     expect((await call(`/api/inbox/${pid}`, B)).status).toBe(404);
     expect((await call(`/api/inbox/${pid}/send`, B, "POST", { text: "hi" })).status).toBe(404);
+    // renamed labels are per customer; empty names fall back to the default
+    expect((await call("/api/inbox-label-names", OWNER, "PUT", { order: "طلبية", other: "" })).body).toEqual({ order: "طلبية" });
+    expect((await call("/api/inbox-label-names", OWNER)).body).toEqual({ order: "طلبية" });
+    expect((await call("/api/inbox-label-names", B)).body).toEqual({});
+    expect((await call("/api/inbox-label-names", OWNER, "PUT", { order: "x".repeat(25) })).status).toBe(422);
   });
 
   it("each customer's simulator uses its own demo account and only its campaigns", async () => {

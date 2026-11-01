@@ -276,3 +276,8 @@ textarea.input {
 html.hide-tips .info-dot {
   display: none !important;
 }
+
+/* Phone and tablet only: hidden on a computer (mouse/trackpad) screen. */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .touch-only { display: none !important; }
+}
