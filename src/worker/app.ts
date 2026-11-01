@@ -2275,11 +2275,12 @@ export function createApp() {
       exchange_rates: knownRates(await getSetting<ExchangeRates>(c.env.DB, OWNER_TENANT, "exchange_rates", DEFAULT_RATES)),
       code_box: await codeBoxOf(c.env.DB),
       publish_scope_customers: await getSetting<boolean>(c.env.DB, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, true),
+      follow_step_customers: await getSetting<boolean>(c.env.DB, OWNER_TENANT, FOLLOW_STEP_SWITCH, true),
     }),
   );
   owner.put("/settings", async (c) => {
     const httpsOrEmpty = z.string().trim().max(300).refine((v) => v === "" || /^https:\/\//.test(v), "الرابط يجب أن يبدأ بـ https://");
-    const p = await parseBody(c, z.object({ sales_contact: httpsOrEmpty.optional(), app_download_url: httpsOrEmpty.optional(), card_button_label: z.string().trim().max(40).optional(), silence_alert: z.boolean().optional(), price_note: z.string().trim().max(60).optional(), exchange_rates: exchangeRatesSchema.optional(), publish_scope_customers: z.boolean().optional(),
+    const p = await parseBody(c, z.object({ sales_contact: httpsOrEmpty.optional(), app_download_url: httpsOrEmpty.optional(), card_button_label: z.string().trim().max(40).optional(), silence_alert: z.boolean().optional(), price_note: z.string().trim().max(60).optional(), exchange_rates: exchangeRatesSchema.optional(), publish_scope_customers: z.boolean().optional(), follow_step_customers: z.boolean().optional(),
       code_box: z.object({
         enabled: z.boolean(),
         title: z.string().trim().max(60),
@@ -2296,6 +2297,10 @@ export function createApp() {
     if (p.data.silence_alert !== undefined) await setSetting(c.env.DB, OWNER_TENANT, "silence_alert", p.data.silence_alert);
     if (p.data.price_note !== undefined) await setSetting(c.env.DB, OWNER_TENANT, "price_note", p.data.price_note);
     if (p.data.code_box) await setSetting(c.env.DB, OWNER_TENANT, "code_box", p.data.code_box);
+    if (p.data.follow_step_customers !== undefined) {
+      await setSetting(c.env.DB, OWNER_TENANT, FOLLOW_STEP_SWITCH, p.data.follow_step_customers);
+      await audit(c.env.DB, T(c), c.get("session").username, "follow_step.updated", undefined, { customers: p.data.follow_step_customers });
+    }
     if (p.data.publish_scope_customers !== undefined) {
       await setSetting(c.env.DB, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, p.data.publish_scope_customers);
       await audit(c.env.DB, T(c), c.get("session").username, "publish_scope.updated", undefined, { customers: p.data.publish_scope_customers });
@@ -2391,6 +2396,7 @@ export function createApp() {
       redirect_uri: redirectUri(c.env),
       webhook_url: `${c.env.PUBLIC_BASE_URL}/webhooks/instagram`,
       configured: !!c.env.INSTAGRAM_APP_ID && !!c.env.INSTAGRAM_APP_SECRET,
+      follow_step: await followStepShown(c.env.DB, c.get("session").is_owner),
     });
   });
 
@@ -3186,6 +3192,11 @@ export function createApp() {
     const d = p.data;
     const now = Date.now();
     const warnings: string[] = [];
+    // The «المتابعة» step hidden from customers by the owner: saved without an invitation or a requirement.
+    if (!(await followStepShown(c.env.DB, c.get("session").is_owner))) {
+      d.follow_invite = false;
+      d.require_follow = false;
+    }
     // Plan: features the plan does not include are saved switched off (with a note).
     const ent = await ENT(c);
     if (d.public_reply_enabled && !ent.limits.public_reply) {
@@ -4480,6 +4491,12 @@ export function createApp() {
 }
 
 /** The follow requirement is allowed only when the owner enabled it on a connected (non-demo) account. */
+/** Owner switch: whether customers see the campaign step «المتابعة» (invitation / requirement). The owner always does. */
+const FOLLOW_STEP_SWITCH = "follow_step_customers";
+async function followStepShown(db: D1Database, isOwner: boolean | number | undefined): Promise<boolean> {
+  return !!isOwner || (await getSetting<boolean>(db, OWNER_TENANT, FOLLOW_STEP_SWITCH, true));
+}
+
 async function followGateAllowed(db: D1Database, tenantId: number): Promise<boolean> {
   const r = await first<{ n: number }>(db, "SELECT COUNT(*) AS n FROM instagram_accounts WHERE tenant_id = ? AND is_demo = 0 AND follow_gate_allowed = 1 AND status != 'disconnected'", tenantId);
   return (r?.n ?? 0) > 0;

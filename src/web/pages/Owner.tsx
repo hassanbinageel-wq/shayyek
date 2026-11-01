@@ -551,7 +551,7 @@ const LIMIT_FIELDS: Array<[string, string]> = [
 function PlansTab() {
   const { data, reload } = useAsync(() => api<any[]>("/api/owner/plans"), []);
   const { data: catalog, reload: reloadCatalog } = useAsync(() => api<any>("/api/public/plans"), []);
-  const { data: settings, reload: reloadSettings } = useAsync(() => api<{ sales_contact: string; app_download_url: string; card_button_label: string; price_note: string; exchange_rates: Record<string, number>; code_box: CodeBox; publish_scope_customers: boolean }>("/api/owner/settings"), []);
+  const { data: settings, reload: reloadSettings } = useAsync(() => api<{ sales_contact: string; app_download_url: string; card_button_label: string; price_note: string; exchange_rates: Record<string, number>; code_box: CodeBox; publish_scope_customers: boolean; follow_step_customers: boolean }>("/api/owner/settings"), []);
   const [contact, setContact] = useState<string | null>(null);
   const [download, setDownload] = useState<string | null>(null);
   const [cardLabel, setCardLabel] = useState<string | null>(null);
@@ -584,6 +584,14 @@ function PlansTab() {
           description={settings.publish_scope_customers ? "مفعّل: كل عميل يُطلب منه إذن النشر عند الربط، والجدولة تشتغل حسب باقته (الترقية تشتغل بدون إعادة ربط)." : "موقوف: الإذن يُطلب من حسابك فقط — الجدولة ما تشتغل للعملاء."}
         />
         <p className="muted mt-2 text-xs">صمّام أمان: أوقفه فقط لو رفضت Meta إذن النشر في المراجعة، عشان يقدر العملاء يربطون حساباتهم.</p>
+      </Card>
+      <Card title="👤 خطوة المتابعة في الحملات">
+        <Toggle
+          checked={settings.follow_step_customers}
+          onChange={(on) => saveSetting({ follow_step_customers: on })}
+          label="إظهار خطوة «المتابعة» للعملاء"
+          description={settings.follow_step_customers ? "ظاهرة: العميل يقدر يضيف دعوة متابعة اختيارية لحملته." : "مخفية: حملات العملاء تنحفظ بدون دعوة ولا شرط متابعة. حسابك يشوفها دائمًا."}
+        />
       </Card>
       <Card title="صفحة الباقات العامة">
         <p className="muted mb-3 text-sm">

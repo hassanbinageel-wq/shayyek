@@ -237,7 +237,8 @@ const firstRoot = (): MenuNode => ({
  * Step ids shown: the follow-requirement messages (6, 7) only when the requirement is on. Step 11 (preview and
  * simulation) was removed: the message preview stays beside the steps, and the simulator has its own page.
  */
-const stepIds = (gated: boolean) => STEPS.map((_, i) => i).filter((i) => i !== 11 && (gated || (i !== 6 && i !== 7)));
+const stepIds = (gated: boolean, followStep = true) =>
+  STEPS.map((_, i) => i).filter((i) => i !== 11 && (followStep || i !== 5) && (gated || (i !== 6 && i !== 7)));
 
 export function CampaignWizard({ id }: { id: number | null }) {
   const [form, setForm] = useState<Form>({ ...EMPTY, timezone: currentTz() });
@@ -255,6 +256,8 @@ export function CampaignWizard({ id }: { id: number | null }) {
   const [stories, setStories] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [account, setAccount] = useState<any>(null);
+  // The owner can hide the «المتابعة» step from customers.
+  const [followStep, setFollowStep] = useState(true);
   const [testText, setTestText] = useState("أبغى الكورس");
   // A campaign made for a scheduled post (from the scheduling editor): it is linked to that post and turns on by
   // itself once the post is published.
@@ -309,13 +312,13 @@ export function CampaignWizard({ id }: { id: number | null }) {
     api("/api/media?kind=story").then((r) => setStories(r.items)).catch(() => undefined);
     api("/api/templates").then(setTemplates).catch(() => undefined);
     api("/api/store/products").then((r) => setStoreItems(r.items ?? [])).catch(() => undefined);
-    api("/api/account").then((r) => setAccount(r.account)).catch(() => undefined);
+    api<any>("/api/account").then((r) => { setAccount(r.account); setFollowStep(r.follow_step !== false); }).catch(() => undefined);
   }, [id]);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const vars = { username: "sara_test", account_username: account?.username ?? "your_account", account_link: `https://www.instagram.com/${account?.username ?? "your_account"}` };
   const isComment = form.type === "comment";
-  const ids = quick ? QUICK_IDS : menuMode ? MENU_IDS : stepIds(form.require_follow);
+  const ids = quick ? QUICK_IDS : menuMode ? MENU_IDS : stepIds(form.require_follow, followStep);
   const labels = quick ? QUICK_LABELS : menuMode ? MENU_LABELS : ids.map((i) => STEPS[i]);
   // Quick setup does not ask for a name: it is derived from the first keyword (editable later).
   const firstKeyword = form.keywords.find((k) => k.kind === "include")?.keyword;

@@ -163,6 +163,19 @@ describe("customers (tenants) are isolated", () => {
     expect(await accountAvailableTo(DB, "17841499999999999", tenantB)).toBe(true); // a new account
   });
 
+  it("the owner can hide the «المتابعة» step from customers: their campaigns save without an invitation", async () => {
+    expect((await call("/api/account", B)).body.follow_step).toBe(true);
+    expect((await call("/api/owner/settings", OWNER, "PUT", { follow_step_customers: false })).status).toBe(200);
+    expect((await call("/api/account", B)).body.follow_step).toBe(false);
+    expect((await call("/api/account", OWNER)).body.follow_step).toBe(true);
+    const b = await call("/api/campaigns", B, "POST", { ...campaign("b_inv"), follow_invite: true });
+    expect(b.status).toBe(200);
+    expect((await DB.prepare("SELECT follow_invite FROM campaigns WHERE id = ?").bind(b.body.id).first<any>()).follow_invite).toBe(0);
+    const o = await call("/api/campaigns", OWNER, "POST", { ...campaign("o_inv"), follow_invite: true });
+    expect((await DB.prepare("SELECT follow_invite FROM campaigns WHERE id = ?").bind(o.body.id).first<any>()).follow_invite).toBe(1);
+    expect((await call("/api/owner/settings", B, "PUT", { follow_step_customers: true })).status).toBe(403);
+  });
+
   it("draws, designs and the inbox are per customer", async () => {
     const a = await call("/api/campaigns", OWNER, "POST", campaign("owner_c"));
     const now = Date.now();
