@@ -6,6 +6,7 @@ import type { MetaError, MetaResult } from "../meta/types";
 import { cacheMediaStmt } from "./media";
 import { getAccessToken, metaClient } from "./account";
 import { tzOffsetMinutes, type AnalyticsFilter } from "./analytics";
+import { getEntitlement } from "./plans";
 
 /**
  * Instagram's own metrics through the official Insights API (permission instagram_business_manage_insights).
@@ -309,6 +310,10 @@ export async function runInsights(env: Env, minute: number, onRequest?: () => vo
   const client = metaClient(env, onRequest);
   let n = 0;
   for (const t of tenants) {
+    // Every customer grants the permission when connecting; the numbers are collected only while their plan
+    // includes the analytics page (an upgrade then works at once, without reconnecting).
+    const ent = await getEntitlement(env.DB, t.id);
+    if (!ent.owner && !(ent.active && ent.limits.campaign_stats)) continue;
     const account = await insightsAccount(env.DB, t.id);
     if (!account) continue;
     const token = await getAccessToken(env, env.DB, account);
