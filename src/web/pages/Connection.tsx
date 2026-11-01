@@ -7,12 +7,6 @@ import { StoreConnect } from "../components/StoreConnect";
 import { AccountAvatar } from "../components/UserAvatar";
 import { Toggle, Alert, Badge, Card, PageHeader, Spinner, fmtTime, toast, useAsync } from "../components/ui";
 
-const SCOPE_AR: Record<string, string> = {
-  instagram_business_basic: "الملف الأساسي والمنشورات",
-  instagram_business_manage_messages: "الرسائل الخاصة والردود الخاصة وملف المستخدم",
-  instagram_business_manage_comments: "قراءة التعليقات والرد عليها",
-};
-
 export function ConnectionPage() {
   const { data, loading, error, reload } = useAsync(() => api("/api/account"), []);
   const { data: me } = useAsync(() => api<{ is_owner?: boolean }>("/api/auth/me"), []);
@@ -150,32 +144,8 @@ export function ConnectionPage() {
 
       <StoreConnect />
 
-      <Card title="الصلاحيات">
-        <ul className="space-y-2">
-          {(data.required_scopes as string[]).map((s) => (
-            <li key={s} className="flex items-start gap-2">
-              <span>{connected ? (a.scopes.includes(s) ? "✅" : "❌") : "⚪"}</span>
-              <span><code className="text-sm" dir="ltr">{s}</code><br /><span className="muted text-sm">{SCOPE_AR[s]}</span></span>
-            </li>
-          ))}
-          {connected && a.scopes.includes("instagram_business_manage_insights") && (
-            <li className="flex items-start gap-2">
-              <span>✅</span>
-              <span><code className="text-sm" dir="ltr">instagram_business_manage_insights</code> <span className="chip surface-2 muted text-[10px]">اختيارية</span><br /><span className="muted text-sm">أرقام إنستقرام في صفحة التحليلات (مشاهدات، وصول، جمهور)</span></span>
-            </li>
-          )}
-        </ul>
-        {missing.length > 0 && <div className="mt-3"><Alert tone="warn">صلاحيات ناقصة: {missing.join(", ")} — أعد الربط ووافق عليها.</Alert></div>}
-      </Card>
-
-      <Card title="إعدادات تحتاجها في لوحة Meta">
-        <dl className="space-y-2 text-sm">
-          <div><dt className="muted">OAuth Redirect URI</dt><dd dir="ltr" className="break-all font-mono">{data.redirect_uri}</dd></div>
-          <div><dt className="muted">Webhook Callback URL</dt><dd dir="ltr" className="break-all font-mono">{data.webhook_url}</dd></div>
-          <div><dt className="muted">الأحداث المستقبَلة (Webhooks)</dt><dd dir="ltr" className="font-mono">{(data.webhook_fields as string[]).join(", ")}</dd></div>
-        </dl>
-        <p className="muted mt-2 text-sm">الخطوات الكاملة في docs/META_SETUP.md.</p>
-      </Card>
+      {/* Missing permissions: the only thing left of the permissions box (the list and the Meta settings are not shown). */}
+      {missing.length > 0 && <Alert tone="warn">صلاحيات ناقصة: {missing.join(", ")} — أعد الربط ووافق عليها.</Alert>}
     </div>
   );
 }
