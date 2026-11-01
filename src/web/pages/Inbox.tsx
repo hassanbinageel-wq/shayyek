@@ -261,16 +261,19 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
         <PageHeader title="الرسائل" subtitle="المحادثات التي بدأتها الأتمتة أو وصلتك عبر الخاص. الرد اليدوي متاح خلال 24 ساعة من آخر رسالة من الشخص." />
         <div className="mt-3">{tabs}</div>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div className={`card min-w-0 p-2 sm:p-3 ${open !== null ? "hidden lg:block" : ""}`}>
-          <input className="input mb-2" placeholder="بحث باسم الحساب…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]" role="group" aria-label="تصفية حسب التصنيف">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
+        {/* The list scrolls inside its own panel (mouse wheel / finger); the page and the open conversation stay put. */}
+        <div className={`card flex h-[calc(100dvh-20rem)] min-h-[340px] min-w-0 flex-col p-2 sm:p-3 lg:sticky lg:top-20 lg:h-[calc(100dvh-15rem)] lg:min-h-[420px] ${open !== null ? "hidden lg:flex" : ""}`}>
+          <div className="mb-2 flex gap-2">
+            <input className="input min-w-0 flex-1" placeholder="بحث باسم الحساب…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button type="button" className="btn btn-ghost shrink-0 px-3" title="تعديل أسماء التصنيفات" aria-label="تعديل أسماء التصنيفات" onClick={() => setEditNames({ ...names })}>✏️</button>
+          </div>
+          <div className="mb-2 flex shrink-0 gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" role="group" aria-label="تصفية حسب التصنيف">
             {[["", "الكل", ""], ...Object.entries(LABELS).map(([k, l]) => [k, l.text, l.icon]), ...custom.map((c) => [c, c, "🏷️"]), ["none", "بدون تصنيف", "🏷️"]].map(([k, t, ic]) => (
               <button key={k} type="button" aria-pressed={label === k} onClick={() => setLabel(k)} className={`chip shrink-0 ${label === k ? "grad text-white" : "surface-2"}`}>
                 {ic} {t}{k && counts[k] ? <span className="opacity-75"> {counts[k]}</span> : null}
               </button>
             ))}
-            <button type="button" className="chip surface-2 shrink-0" title="تعديل أسماء التصنيفات" aria-label="تعديل أسماء التصنيفات" onClick={() => setEditNames({ ...names })}>✏️</button>
           </div>
           <Modal open={!!editNames} onClose={() => setEditNames(null)} title="أسماء التصنيفات">
             {editNames && (
@@ -294,7 +297,7 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
           ) : !list.length ? (
             <p className="muted py-6 text-center text-sm">لا توجد محادثات بعد. ستظهر هنا بعد أول رسالة.</p>
           ) : (
-            <div className="divide-y divide-[var(--border)]">
+            <div className="-mx-1 min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto overscroll-contain px-1">
               {list.map((c) => (
                 <button key={c.id} onClick={() => setOpen(c.id)} className={`flex w-full items-start gap-2.5 rounded-xl px-2 py-2.5 text-right transition hover:bg-[var(--surface-2)] ${open === c.id ? "bg-violet-500/10 shadow-[inset_-3px_0_0_#7c3aed]" : ""}`}>
                   <UserAvatar url={c.profile_pic_url} name={c.username} size={40} />
@@ -318,7 +321,7 @@ function Chats({ tabs }: { tabs: React.ReactNode }) {
             </div>
           )}
         </div>
-        <div className={`card min-w-0 p-3 sm:p-4 ${open === null ? "hidden lg:block" : ""}`}>
+        <div className={`card min-w-0 p-3 sm:p-4 lg:sticky lg:top-20 ${open === null ? "hidden lg:block" : ""}`}>
           {open === null ? (
             <p className="muted py-10 text-center text-sm">اختر محادثة من القائمة.</p>
           ) : (
