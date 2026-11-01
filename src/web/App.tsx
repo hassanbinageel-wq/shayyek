@@ -8,7 +8,7 @@ import { Icon } from "./components/Icon";
 import { NotificationBell } from "./components/NotificationBell";
 import { HelpWidget, IncidentBanner, useSupportCenter } from "./components/HelpWidget";
 import { PromoLayer } from "./components/Promos";
-import { extraNote, messagesLeft } from "./lib/messagesBar";
+import { extraNote, messagesUsed, usageBarStyle } from "./lib/messagesBar";
 import { BrandLogo } from "./components/Brand";
 import { AccountAvatar } from "./components/UserAvatar";
 import { LoginPage } from "./pages/Login";
@@ -409,13 +409,13 @@ export function App() {
         )}
         {shell.cycle && (() => {
           const c = shell.cycle;
-          const left = messagesLeft(c.used, c.limit, c.limit === null ? null : c.limit - c.extra);
+          const left = messagesUsed(c.used, c.limit, c.limit === null ? null : c.limit - c.extra);
           const note = extraNote(c.extra);
           return (
             <Link to="/subscription" className="mt-3 block rounded-2xl border border-[var(--border)] p-3">
               <b className="block text-xs">الرسائل</b>
               <span className="muted text-[11px]">{c.used.toLocaleString("en-US")} من {c.limit === null ? "غير محدود" : c.limit.toLocaleString("en-US")} رسالة{note ? ` (${note})` : ""}</span>
-              <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"><span className={`block h-full rounded-full ${left.tone}`} style={{ width: `${Math.max(left.pct > 0 ? 2 : 0, left.pct)}%` }} /></span>
+              <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"><span className="block h-full rounded-full transition-all" style={left.style} /></span>
             </Link>
           );
         })()}

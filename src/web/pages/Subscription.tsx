@@ -7,7 +7,7 @@ import { Icon } from "../components/Icon";
 import { PlansShowcase } from "../components/PlansShowcase";
 import { TopupPicker } from "../components/Promos";
 import { AccountEmailCard } from "../components/AccountEmail";
-import { extraNote, messagesLeft } from "../lib/messagesBar";
+import { extraNote, messagesUsed, usageBarStyle } from "../lib/messagesBar";
 import { Alert, Card, InfoDot, Spinner, fmtDate, fmtTime, toast, useAsync } from "../components/ui";
 
 const n = (v: number | null) => (v === null ? "غير محدود" : v.toLocaleString("en-US"));
@@ -18,7 +18,7 @@ function Meter({ label, used, max }: { label: React.ReactNode; used: number; max
     <div>
       <div className="flex justify-between text-sm"><span className="font-semibold">{label}</span><span className="muted">{used.toLocaleString("en-US")} / {n(max)}</span></div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-        <div className={`h-full rounded-full ${pct >= 90 ? "bg-red-500" : "grad"}`} style={{ width: `${max === null ? 4 : Math.max(2, pct)}%` }} />
+        <div className="h-full rounded-full transition-all" style={usageBarStyle(max === null ? 0 : pct)} />
       </div>
     </div>
   );
@@ -26,13 +26,13 @@ function Meter({ label, used, max }: { label: React.ReactNode; used: number; max
 
 /** The cycle's messages: the bar shows what is left (full when unused), with the owner's additions or deductions. */
 function MessagesMeter({ label, used, max, extra = 0 }: { label: React.ReactNode; used: number; max: number | null; extra?: number }) {
-  const left = messagesLeft(used, max, max === null ? null : max - extra);
+  const left = messagesUsed(used, max, max === null ? null : max - extra);
   const note = extraNote(extra);
   return (
     <div>
       <div className="flex justify-between text-sm"><span className="font-semibold">{label}</span><span className="muted">{used.toLocaleString("en-US")} / {n(max)}</span></div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-        <div className={`h-full rounded-full ${left.tone}`} style={{ width: `${Math.max(left.pct > 0 ? 2 : 0, left.pct)}%` }} />
+        <div className="h-full rounded-full transition-all" style={left.style} />
       </div>
       <p className="muted mt-1 text-xs">باقي {max === null ? "غير محدود" : Math.max(0, max - used).toLocaleString("en-US")}{note ? <> · <span className={extra > 0 ? "font-semibold text-orange-600 dark:text-orange-400" : "font-semibold text-red-600 dark:text-red-400"}>{note}</span></> : null}</p>
     </div>

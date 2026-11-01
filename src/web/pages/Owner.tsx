@@ -16,7 +16,7 @@ import { BANNER_SIZES, DEFAULT_TEXTS, DesktopBanner, MobileBanner, PointIcon, to
 import { remixExists, remixName } from "../components/RemixIcon";
 import { Icon } from "../components/Icon";
 import { logoDataUrl } from "../lib/logoImage";
-import { extraNote, messagesLeft } from "../lib/messagesBar";
+import { extraNote, messagesUsed, usageBarStyle } from "../lib/messagesBar";
 import { Alert, Card, Empty, Field, Modal, Spinner, Tip, Toggle, fmtDate, fmtTime, toast, useAsync } from "../components/ui";
 import { CURRENCIES, EVENT_LABELS, FEATURE_HINTS, FEATURE_LABELS, LIMIT_HINTS, LIMIT_ROW_LABELS, PRICE_PERIODS, formatPrice, orderFeatures } from "../../shared/plans";
 
@@ -277,15 +277,15 @@ function CustomersTab() {
 
 const DAY = 86_400_000;
 
-/** Days left in the customer's subscription as a bar (green → amber → red), with the plan and monthly usage. */
+/** The customer's subscription: a bar that fills as the end nears (green → orange → red), with the plan and monthly usage. */
 function SubscriptionBar({ t, onEdit, onMessages }: { t: any; onEdit: () => void; onMessages: () => void }) {
   const now = Date.now();
   const exp: number | null = t.plan_expires_at ?? null;
   const active = !!exp && exp > now;
   const daysLeft = active ? Math.ceil((exp! - now) / DAY) : 0;
-  // Days left out of a month (30 days): 15 days left = half. More than a month ahead stays full.
-  const pct = active ? Math.max(3, Math.min(100, Math.round(((exp! - now) / (30 * DAY)) * 100))) : 0;
-  const tone = !active ? "bg-red-500" : daysLeft <= 3 ? "bg-red-500" : daysLeft <= 7 ? "bg-amber-500" : "bg-emerald-500";
+  // Time used of a month (30 days): fills as the end comes near (15 days left = half; more than a month ahead =
+  // empty; ended = full and red).
+  const pct = active ? Math.max(0, Math.min(100, Math.round(100 - ((exp! - now) / (30 * DAY)) * 100))) : 100;
   return (
     <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-3 transition hover:border-violet-400">
     <button type="button" onClick={onEdit} className="block w-full text-right" title="تعديل الاشتراك">
@@ -295,8 +295,8 @@ function SubscriptionBar({ t, onEdit, onMessages }: { t: any; onEdit: () => void
           {!exp ? "لا يوجد اشتراك" : active ? `باقي ${daysLeft} ${daysLeft === 1 ? "يوم" : daysLeft <= 10 ? "أيام" : "يوم"}` : "منتهي"}
         </span>
       </div>
-      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="المدة المتبقية من الاشتراك" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`h-full rounded-full ${tone} transition-all`} style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="المدة المنقضية من الاشتراك" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full rounded-full transition-all" style={usageBarStyle(pct)} />
       </div>
       <div className="muted mt-1.5 text-[11px]">{exp ? `${active ? "ينتهي" : "انتهى"} ${fmtDate(exp)}` : "اضغط لتعيين باقة"}</div>
     </button>
@@ -353,7 +353,7 @@ function CreditsModal({ t, onClose, onDone }: { t: any; onClose: () => void; onD
 
 /** This month's messages against the plan's limit (null = unlimited). */
 function MessagesMeter({ used, limit, extra = 0 }: { used: number; limit: number | null; extra?: number }) {
-  const left = messagesLeft(used, limit, limit === null ? null : limit - extra);
+  const left = messagesUsed(used, limit, limit === null ? null : limit - extra);
   const note = extraNote(extra);
   return (
     <div className="mt-2.5">
@@ -364,8 +364,8 @@ function MessagesMeter({ used, limit, extra = 0 }: { used: number; limit: number
           {note && <span className={`block text-[10px] ${extra > 0 ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"}`}>({note})</span>}
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="الرسائل المتبقية" aria-valuenow={Math.round(left.pct)} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`h-full rounded-full ${left.tone}`} style={{ width: `${Math.max(left.pct > 0 ? 2 : 0, left.pct)}%` }} />
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="الرسائل المستخدمة" aria-valuenow={Math.round(left.pct)} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full rounded-full transition-all" style={left.style} />
       </div>
     </div>
   );
