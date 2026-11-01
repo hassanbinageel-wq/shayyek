@@ -16,15 +16,15 @@ describe("publishing permission requested by plan", () => {
     await DB.prepare("UPDATE plans SET limits = json_set(limits, '$.scheduling', json(?)) WHERE id = 'basic'").bind("false").run();
   });
 
-  it("asks automatically only customers whose active plan includes scheduling (and the owner)", async () => {
+  it("asks every customer (whatever the plan) and the owner; scheduling itself stays limited by the plan", async () => {
     const withIt = await tenant("max");
     const without = await tenant("basic");
     expect(await wantsPublishScope(DB, 1)).toBe(true);
     expect(await wantsPublishScope(DB, withIt)).toBe(true);
-    expect(await wantsPublishScope(DB, without)).toBe(false);
-    // expired plan: not asked
+    expect(await wantsPublishScope(DB, without)).toBe(true);
+    // an expired plan is asked too: renewing then works without reconnecting
     await DB.prepare("UPDATE tenants SET plan_expires_at = ? WHERE id = ?").bind(Date.now() - DAY, withIt).run();
-    expect(await wantsPublishScope(DB, withIt)).toBe(false);
+    expect(await wantsPublishScope(DB, withIt)).toBe(true);
   });
 });
 
@@ -33,7 +33,7 @@ describe("the owner's switch for asking customers", () => {
     await resetDb();
     await DB.prepare("UPDATE plans SET limits = json_set(limits, '$.scheduling', json(?)) WHERE id = 'max'").bind("true").run();
   });
-  it("off: only the owner is asked; on again: customers with scheduling are asked", async () => {
+  it("off (safety valve): only the owner is asked; on again: customers are asked", async () => {
     const withIt = await tenant("max");
     const set = (on: boolean) => DB.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES ('publish_scope_customers', ?, 0) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(JSON.stringify(on)).run();
     await set(false);

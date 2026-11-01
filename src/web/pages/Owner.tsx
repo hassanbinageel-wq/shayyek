@@ -581,9 +581,9 @@ function PlansTab() {
           checked={settings.publish_scope_customers}
           onChange={togglePublish}
           label="طلب صلاحية النشر من العملاء"
-          description={settings.publish_scope_customers ? "مفعّل: كل عميل باقته فيها الجدولة يُطلب منه إذن النشر عند الربط." : "موقوف: الإذن يُطلب من حسابك فقط — الجدولة ما تشتغل للعملاء."}
+          description={settings.publish_scope_customers ? "مفعّل: كل عميل يُطلب منه إذن النشر عند الربط، والجدولة تشتغل حسب باقته (الترقية تشتغل بدون إعادة ربط)." : "موقوف: الإذن يُطلب من حسابك فقط — الجدولة ما تشتغل للعملاء."}
         />
-        <p className="muted mt-2 text-xs">أوقفه إذا حوّلت تطبيق Meta لوضع Live قبل موافقتهم على إذن النشر، وشغّله بعد الموافقة.</p>
+        <p className="muted mt-2 text-xs">صمّام أمان: أوقفه فقط لو رفضت Meta إذن النشر في المراجعة، عشان يقدر العملاء يربطون حساباتهم.</p>
       </Card>
       <Card title="صفحة الباقات العامة">
         <p className="muted mb-3 text-sm">

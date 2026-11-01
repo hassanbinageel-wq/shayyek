@@ -83,15 +83,14 @@ export const LIMITS = {
 // ---- who is asked for the permission (same pattern as insights) -------------------------------------------------
 
 /**
- * The owner is always asked for the publishing permission when connecting. Customers whose active plan includes
- * scheduling are asked automatically while the owner's switch is on (default) — the owner turns it off while the
- * Meta app is live but the permission is not approved yet, so customers can still connect.
+ * The owner is always asked for the publishing permission when connecting. While the owner's switch is on (default)
+ * every customer is asked too, whatever their plan: scheduling itself stays limited to plans that include it, and an
+ * upgrade then works without reconnecting. The switch is the safety valve: off while Meta has not approved the
+ * permission, so customers can still connect.
  */
 export async function wantsPublishScope(db: D1Database, tenantId: number): Promise<boolean> {
   if (tenantId === OWNER_TENANT) return true;
-  if (!(await getSetting<boolean>(db, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, true))) return false;
-  const e = await getEntitlement(db, tenantId);
-  return e.owner || (e.active && !!e.limits.scheduling);
+  return getSetting<boolean>(db, OWNER_TENANT, PUBLISH_SCOPE_SWITCH, true);
 }
 /**
  * Runs a plan change and, when it newly gives the customer scheduling while their connected Instagram account
