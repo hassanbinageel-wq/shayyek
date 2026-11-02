@@ -4061,7 +4061,7 @@ export function createApp() {
     for (const a of accounts) {
       const r = await first<{ n: number }>(
         c.env.DB,
-        "SELECT COUNT(*) AS n FROM participants WHERE account_id = ? AND last_user_message_at > ? AND is_demo = 0 AND last_user_message_at > COALESCE(inbox_read_at, 0)",
+        "SELECT COUNT(*) AS n FROM participants WHERE account_id = ? AND last_user_message_at > COALESCE(inbox_read_at, 0) AND last_user_message_at > ? AND is_demo = 0", // partial index participants_unread
         a.id,
         since,
       );
