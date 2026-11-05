@@ -38,3 +38,18 @@ export function extraNote(extra: number): string | null {
   const n = Math.abs(extra).toLocaleString("en-US");
   return extra > 0 ? `منها ${n} إضافية` : `تم خصم ${n}`;
 }
+
+const DAY = 86_400_000;
+
+/**
+ * Days left of a subscription as a usage bar: the time used of a month (30 days) fills it (15 days left = half,
+ * more than a month ahead = empty, ended = full and red).
+ */
+export function subscriptionLeft(expiresAt: number | null, now = Date.now()): { active: boolean; daysLeft: number; pct: number; label: string; tone: string; style: CSSProperties } {
+  const active = !!expiresAt && expiresAt > now;
+  const daysLeft = active ? Math.ceil((expiresAt! - now) / DAY) : 0;
+  const pct = active ? Math.max(0, Math.min(100, Math.round(100 - ((expiresAt! - now) / (30 * DAY)) * 100))) : 100;
+  const label = !expiresAt ? "لا يوجد اشتراك" : active ? `باقي ${daysLeft} ${daysLeft === 1 ? "يوم" : daysLeft <= 10 ? "أيام" : "يوم"}` : "منتهي";
+  const tone = !active || daysLeft <= 3 ? "text-red-600" : daysLeft <= 7 ? "text-amber-600" : "text-emerald-600";
+  return { active, daysLeft, pct, label, tone, style: usageBarStyle(pct) };
+}

@@ -1265,9 +1265,9 @@ export function createApp() {
   });
   // The side menu's «رسائل الدورة الحالية» card.
   api.get("/cycle", async (c) => {
-    if (c.get("session").is_owner) return c.json({ used: null, limit: null, extra: 0 });
+    if (c.get("session").is_owner) return c.json({ used: null, limit: null, extra: 0, expires_at: null });
     const e = await ENT(c);
-    return c.json({ used: await monthlyMessages(c.env.DB, T(c)), limit: e.active ? e.limits.monthly_messages : 0, extra: e.extra_messages ?? 0 });
+    return c.json({ used: await monthlyMessages(c.env.DB, T(c)), limit: e.active ? e.limits.monthly_messages : 0, extra: e.extra_messages ?? 0, expires_at: e.expires_at ?? null });
   });
   api.get("/promos", async (c) => {
     if (c.get("session").is_owner) return c.json({ topup: null, popup: null, offers: [] });

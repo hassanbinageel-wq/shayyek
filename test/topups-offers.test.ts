@@ -142,7 +142,10 @@ describe("message top-ups", () => {
     const owner = (await DB.prepare("SELECT title FROM app_notifications WHERE tenant_id = 1 AND title LIKE '%خلّص%'").all<any>()).results;
     expect(owner).toHaveLength(1);
     expect(owner[0].title).toContain("تلقائيًا");
-    expect((await call("/api/cycle", h)).body).toEqual({ used: 1000, limit: 1000, extra: 0 });
+    const cyc = (await call("/api/cycle", h)).body;
+    expect(cyc).toMatchObject({ used: 1000, limit: 1000, extra: 0 });
+    const exp = await DB.prepare("SELECT plan_expires_at FROM tenants WHERE id = ?").bind(tid).first<any>();
+    expect(cyc.expires_at).toBe(exp.plan_expires_at);
   });
 });
 

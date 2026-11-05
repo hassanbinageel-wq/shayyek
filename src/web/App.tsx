@@ -8,7 +8,7 @@ import { Icon } from "./components/Icon";
 import { NotificationBell } from "./components/NotificationBell";
 import { HelpWidget, IncidentBanner, useSupportCenter } from "./components/HelpWidget";
 import { PromoLayer } from "./components/Promos";
-import { extraNote, messagesUsed, usageBarStyle } from "./lib/messagesBar";
+import { extraNote, messagesUsed, subscriptionLeft, usageBarStyle } from "./lib/messagesBar";
 import { BrandLogo } from "./components/Brand";
 import { AccountAvatar } from "./components/UserAvatar";
 import { LoginPage } from "./pages/Login";
@@ -235,7 +235,7 @@ export function App() {
   useEffect(() => setMenuOpen(false), [route]);
   const [flash, setFlash] = useState(false);
   const usageAt = useRef<{ at: number; req: any }>({ at: 0, req: null });
-  const [shell, setShell] = useState<{ account?: any; unread: number; usagePct?: number; usageUsed?: number; cycle?: { used: number; limit: number | null; extra: number } | null }>({ unread: 0 });
+  const [shell, setShell] = useState<{ account?: any; unread: number; usagePct?: number; usageUsed?: number; cycle?: { used: number; limit: number | null; extra: number; expires_at?: number | null } | null }>({ unread: 0 });
   useEffect(() => {
     if (auth !== "in") return;
     let alive = true;
@@ -416,6 +416,15 @@ export function App() {
               <b className="block text-xs">الرسائل</b>
               <span className="muted text-[11px]">{c.used.toLocaleString("en-US")} من {c.limit === null ? "غير محدود" : c.limit.toLocaleString("en-US")} رسالة{note ? ` (${note})` : ""}</span>
               <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"><span className="block h-full rounded-full transition-all" style={left.style} /></span>
+              {c.expires_at !== undefined && (() => {
+                const sub = subscriptionLeft(c.expires_at ?? null);
+                return (
+                  <>
+                    <span className="mt-3 flex items-center justify-between gap-2 text-xs"><b>الاشتراك</b><b className={sub.tone}>{sub.label}</b></span>
+                    <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]" role="progressbar" aria-label="المدة المنقضية من الاشتراك" aria-valuenow={sub.pct} aria-valuemin={0} aria-valuemax={100}><span className="block h-full rounded-full transition-all" style={sub.style} /></span>
+                  </>
+                );
+              })()}
             </Link>
           );
         })()}

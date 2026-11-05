@@ -16,7 +16,7 @@ import { BANNER_SIZES, DEFAULT_TEXTS, DesktopBanner, MobileBanner, PointIcon, to
 import { remixExists, remixName } from "../components/RemixIcon";
 import { Icon } from "../components/Icon";
 import { logoDataUrl } from "../lib/logoImage";
-import { extraNote, messagesUsed, usageBarStyle } from "../lib/messagesBar";
+import { extraNote, messagesUsed, subscriptionLeft, usageBarStyle } from "../lib/messagesBar";
 import { Alert, Card, Empty, Field, Modal, Spinner, Tip, Toggle, fmtDate, fmtTime, toast, useAsync } from "../components/ui";
 import { CURRENCIES, EVENT_LABELS, FEATURE_HINTS, FEATURE_LABELS, LIMIT_HINTS, LIMIT_ROW_LABELS, PRICE_PERIODS, formatPrice, orderFeatures } from "../../shared/plans";
 
@@ -279,24 +279,18 @@ const DAY = 86_400_000;
 
 /** The customer's subscription: a bar that fills as the end nears (green → orange → red), with the plan and monthly usage. */
 function SubscriptionBar({ t, onEdit, onMessages }: { t: any; onEdit: () => void; onMessages: () => void }) {
-  const now = Date.now();
   const exp: number | null = t.plan_expires_at ?? null;
-  const active = !!exp && exp > now;
-  const daysLeft = active ? Math.ceil((exp! - now) / DAY) : 0;
-  // Time used of a month (30 days): fills as the end comes near (15 days left = half; more than a month ahead =
-  // empty; ended = full and red).
-  const pct = active ? Math.max(0, Math.min(100, Math.round(100 - ((exp! - now) / (30 * DAY)) * 100))) : 100;
+  const sub = subscriptionLeft(exp);
+  const { active, pct } = sub;
   return (
     <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-3 transition hover:border-violet-400">
     <button type="button" onClick={onEdit} className="block w-full text-right" title="تعديل الاشتراك">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="font-display text-sm font-extrabold">{t.plan_name ?? "بدون باقة"}</span>
-        <span className={`font-bold ${!active ? "text-red-600" : daysLeft <= 3 ? "text-red-600" : daysLeft <= 7 ? "text-amber-600" : "text-emerald-600"}`}>
-          {!exp ? "لا يوجد اشتراك" : active ? `باقي ${daysLeft} ${daysLeft === 1 ? "يوم" : daysLeft <= 10 ? "أيام" : "يوم"}` : "منتهي"}
-        </span>
+        <span className={`font-bold ${sub.tone}`}>{sub.label}</span>
       </div>
       <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--border)]" role="progressbar" aria-label="المدة المنقضية من الاشتراك" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className="h-full rounded-full transition-all" style={usageBarStyle(pct)} />
+        <div className="h-full rounded-full transition-all" style={sub.style} />
       </div>
       <div className="muted mt-1.5 text-[11px]">{exp ? `${active ? "ينتهي" : "انتهى"} ${fmtDate(exp)}` : "اضغط لتعيين باقة"}</div>
     </button>
