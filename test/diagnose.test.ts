@@ -57,11 +57,21 @@ describe("owner diagnosis of a customer", () => {
     const titles = r.body.checks.map((c: any) => c.title).join("\n");
     expect(titles).toContain("يحتاج إعادة ربط");
     expect(titles).toContain("ما اختار أي منشور");
+    expect(titles).not.toContain("غير مربوطة بحساب");
     expect(titles).toContain("إرسال فشل");
     expect(r.body.summary.bad).toBeGreaterThanOrEqual(2);
     expect(JSON.stringify(r.body)).not.toContain(secret);
     expect(r.body.details.recent_failures[0].last_error).toContain("[…]");
     expect(JSON.stringify(r.body)).not.toMatch(/token_ciphertext|csrf/);
+
+    // a campaign without account_id serves the tenant's accounts; one pinned to a foreign account is flagged
+    await DB.prepare("INSERT INTO campaigns (tenant_id, account_id, name, type, status, scope, match_all, final_text, created_at, updated_at) VALUES (?, NULL, 'عام', 'comment', 'active', 'all', 1, 'x', ?, ?)").bind(a.tid, now, now).run();
+    const old = await DB.prepare("INSERT INTO instagram_accounts (tenant_id, ig_user_id, status, created_at, updated_at) VALUES (?, 'old-ig-1', 'disconnected', ?, ?) RETURNING id").bind(a.tid, now, now).first<any>();
+    await DB.prepare("INSERT INTO campaigns (tenant_id, account_id, name, type, status, scope, match_all, final_text, created_at, updated_at) VALUES (?, ?, 'قديمة', 'comment', 'active', 'all', 1, 'x', ?, ?)").bind(a.tid, old.id, now, now).run();
+    r = await call(`/api/owner/tenants/${a.tid}/diagnose`, OWNER);
+    const unlinked = r.body.checks.filter((c: any) => c.title.includes("غير مربوطة بحساب")).map((c: any) => c.title);
+    expect(unlinked).toHaveLength(1);
+    expect(unlinked[0]).toContain("«قديمة»");
 
     // customers cannot run it; the owner's own tenant is not a customer
     expect((await call(`/api/owner/tenants/${a.tid}/diagnose`, a.h)).status).toBe(403);

@@ -70,6 +70,7 @@ export async function diagnoseTenant(db: D1Database, tenantId: number, appVersio
     if (a.last_error) add("إنستقرام", "info", `${who}: آخر خطأ مسجّل: ${cleanError(a.last_error)}`);
   }
   const accIds = accounts.map((a) => a.id);
+  const liveIds = accounts.filter((a) => a.status !== "disconnected").map((a) => a.id);
   const igIds = accounts.map((a) => a.ig_user_id);
   const inAcc = accIds.length ? `(${accIds.map(() => "?").join(",")})` : "(NULL)";
   const inIg = igIds.length ? `(${igIds.map(() => "?").join(",")})` : "(NULL)";
@@ -90,7 +91,8 @@ export async function diagnoseTenant(db: D1Database, tenantId: number, appVersio
     const nm = `«${c.name}» (#${c.id})`;
     if (c.stock_paused) add("الحملات", "warn", `${nm}: موقفة تلقائيًا لأن المنتج نفد`);
     if (c.status !== "active") continue;
-    if (!c.account_id || !accIds.includes(c.account_id)) add("الحملات", "bad", `${nm}: غير مربوطة بحساب إنستقرام متصل`, "يعدّل الحملة ويختار الحساب.");
+    // A campaign without account_id serves every account of its tenant (the engine picks campaigns by tenant).
+    if (c.account_id ? !liveIds.includes(c.account_id) : !liveIds.length) add("الحملات", "bad", `${nm}: غير مربوطة بحساب إنستقرام متصل`, "يعدّل الحملة ويختار الحساب.");
     if (c.type === "comment" && c.scope === "selected" && !c.media) add("الحملات", "bad", `${nm}: مخصصة لمنشورات محددة بس ما اختار أي منشور`, "يعدّل الحملة ويختار المنشور، أو يخليها على كل المنشورات.");
     if (!c.match_all && !c.includes && c.type !== "story_mention") add("الحملات", "bad", `${nm}: ما فيها كلمات تشغيل ولا «الرد على أي تعليق»`, "يضيف كلمة مثل «تم» أو يفعّل الرد على أي تعليق.");
     if (c.schedule_end && c.schedule_end < now) add("الحملات", "bad", `${nm}: انتهى وقتها المجدول`, "يمدد تاريخ النهاية.");
