@@ -1,0 +1,40 @@
+# Read-only live security check: HTTPS redirect, security headers, exposed files. Changes nothing.
+name: Security check (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: HTTPS redirect
+        run: |
+          for u in http://shayyek.sa/ http://www.shayyek.sa/ http://hsnreply.online/; do
+            echo "== $u"; curl -sS -o /dev/null -D - --max-time 15 "$u" | grep -iE "^(HTTP|location)" || true
+          done
+      - name: Security headers (app page, API, legal page)
+        run: |
+          for u in https://shayyek.sa/ https://shayyek.sa/api/auth/status https://shayyek.sa/privacy; do
+            echo "== $u"
+            curl -sS -o /dev/null -D - --max-time 15 "$u" | grep -iE "^(HTTP|strict-transport-security|content-security-policy|x-frame-options|x-content-type-options|referrer-policy|permissions-policy|cross-origin-opener-policy|access-control-allow-origin|server|x-powered-by)" || true
+          done
+      - name: CORS from a foreign origin (expects no Access-Control-Allow-Origin)
+        run: |
+          curl -sS -o /dev/null -D - --max-time 15 -X OPTIONS https://shayyek.sa/api/auth/login -H "Origin: https://evil.example" -H "Access-Control-Request-Method: POST" | grep -iE "^(HTTP|access-control)" || true
+      - name: Exposed files (expects no real file, the app page or 404)
+        run: |
+          for p in /.env /.git/config /.dev.vars /wrangler.jsonc /package.json /backup.sql /migrations/0001_init.sql /src/worker/app.ts /assets/index.js.map; do
+            printf "%-32s " "$p"; curl -sS -o /tmp/b -w "%{http_code} %{content_type} %{size_download}B" --max-time 15 "https://shayyek.sa$p"; echo " first: $(head -c 40 /tmp/b | tr -d '\n')"
+          done
+      - name: Error responses do not leak details
+        run: |
+          curl -sS --max-time 15 -X POST https://shayyek.sa/api/auth/login -H "Content-Type: application/json" -d '{bad json' ; echo
+          curl -sS --max-time 15 https://shayyek.sa/api/does-not-exist ; echo
+      - name: Webhook rejects unsigned payloads (expects 401/403)
+        run: |
+          curl -sS -o /dev/null -w "instagram webhook unsigned: %{http_code}\n" --max-time 15 -X POST https://shayyek.sa/webhooks/instagram -H "Content-Type: application/json" -d '{"object":"instagram","entry":[]}'
