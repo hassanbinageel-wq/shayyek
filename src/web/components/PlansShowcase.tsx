@@ -84,7 +84,7 @@ const ROW_COLS: Record<number, string> = { 1: "@4xl:grid-cols-1", 2: "@4xl:grid-
  * narrow (phones) a swipeable carousel that opens on the customer's plan (or the featured one), with the plan
  * names above and dots below; medium (tablets) two cards per row; wide (desktop) all plans on one row.
  */
-export function PlanCards({ catalog, cur, currentPlanId, onChoose, onCardPay, coupon = null }: { catalog: Catalog; cur: string; currentPlanId?: string | null; onChoose?: () => void; onCardPay?: (planId: string) => void; coupon?: Coupon }) {
+export function PlanCards({ catalog, cur, currentPlanId, startPlanId, onChoose, onCardPay, coupon = null }: { catalog: Catalog; cur: string; currentPlanId?: string | null; startPlanId?: string | null; onChoose?: () => void; onCardPay?: (planId: string) => void; coupon?: Coupon }) {
   const featured = catalog.featured ? catalog.featured.plan_id : catalog.plans.length >= 3 ? catalog.plans[1].id : null;
   const badge = catalog.featured?.label || "الأكثر طلبًا";
   const track = useRef<HTMLDivElement>(null);
@@ -109,8 +109,8 @@ export function PlanCards({ catalog, cur, currentPlanId, onChoose, onCardPay, co
     const b = root.getBoundingClientRect();
     root.scrollBy({ left: a.left + a.width / 2 - (b.left + b.width / 2), behavior: smooth ? "smooth" : "auto" });
   };
-  // Open on the customer's own plan, or the featured one.
-  const start = Math.max(0, catalog.plans.findIndex((p) => p.id === (currentPlanId || featured)));
+  // Open on the customer's own plan, the page's chosen plan (visitors: the free one), or the featured one.
+  const start = Math.max(0, catalog.plans.findIndex((p) => p.id === (currentPlanId || startPlanId || featured)));
   useEffect(() => {
     setActive(start);
     requestAnimationFrame(() => go(start, false));
@@ -197,7 +197,7 @@ export function PlanCards({ catalog, cur, currentPlanId, onChoose, onCardPay, co
   );
 }
 
-export function PlansShowcase({ catalog, currentPlanId, onCardPay }: { catalog: Catalog; currentPlanId?: string | null; onCardPay?: (planId: string) => void }) {
+export function PlansShowcase({ catalog, currentPlanId, startPlanId, onCardPay }: { catalog: Catalog; currentPlanId?: string | null; startPlanId?: string | null; onCardPay?: (planId: string) => void }) {
   // Prices are shown in Saudi riyals only (converted with the owner's rates when a plan is priced in another currency).
   const cur = "SAR";
   const [coupon, setCoupon] = useState<Coupon>(null);
@@ -206,7 +206,7 @@ export function PlansShowcase({ catalog, currentPlanId, onCardPay }: { catalog: 
   return (
     <div className="space-y-4">
       {anyPrice && <CouponBox coupon={coupon} setCoupon={setCoupon} />}
-      <PlanCards catalog={catalog} cur={cur} currentPlanId={currentPlanId} onChoose={contact ? () => window.open(contact, "_blank", "noopener") : undefined} onCardPay={onCardPay} coupon={coupon} />
+      <PlanCards catalog={catalog} cur={cur} currentPlanId={currentPlanId} startPlanId={startPlanId} onChoose={contact ? () => window.open(contact, "_blank", "noopener") : undefined} onCardPay={onCardPay} coupon={coupon} />
     </div>
   );
 }

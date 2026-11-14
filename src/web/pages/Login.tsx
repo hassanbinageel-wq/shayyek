@@ -295,7 +295,6 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
                   <Icon name="zap" size={17} />جديد؟ شوف الباقات وابدأ
                 </a>
                 <p className="flex flex-wrap items-center justify-center gap-x-4 text-center text-sm">
-                  <button type="button" className="inline-flex min-h-10 items-center font-semibold text-violet-700 underline dark:text-violet-300" onClick={() => { setRegister(true); setError(null); location.hash = "#/register"; }}>عندي كود تفعيل</button>
                   <a href="#/forgot" className="inline-flex min-h-10 items-center font-semibold text-violet-700 underline dark:text-violet-300">نسيت كلمة المرور؟</a>
                 </p>
               </div>
@@ -342,10 +341,7 @@ function PublicPlansPage() {
           <a href="#/" className="flex items-center" aria-label="شيّك Shayyek">
             <BrandLogo className="h-10" />
           </a>
-          <div className="flex gap-2">
-            <a href="#/" className="btn btn-ghost min-h-10 text-xs">تسجيل الدخول</a>
-            <a href="#/register" className="btn btn-primary min-h-10 text-xs">عندي كود</a>
-          </div>
+          <a href="#/" className="btn btn-ghost min-h-10 text-xs">تسجيل الدخول</a>
         </div>
       </header>
       <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
@@ -354,7 +350,7 @@ function PublicPlansPage() {
           <h1 className="font-display mt-3 text-[28px] font-extrabold leading-tight sm:text-4xl">اختر الباقة المناسبة لحسابك</h1>
           <p className="muted mx-auto mt-2 max-w-xl text-sm leading-relaxed">ردود تلقائية على تعليقات وستوري إنستقرام عبر واجهة Meta الرسمية — بدون كلمة مرور، وبدون أي أدوات غير رسمية.</p>
         </div>
-        {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={data} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
+        {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={data} startPlanId={data.plans.find((p) => p.free)?.id ?? null} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
         <p className="muted text-center text-[11px] leading-relaxed">
           خدمة تقدّمها مؤسسة لمسة كورة للتجارة — مكة المكرمة
           <br />
