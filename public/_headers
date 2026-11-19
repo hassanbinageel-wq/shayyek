@@ -2,3 +2,12 @@
   Content-Type: application/vnd.android.package-archive
   Content-Disposition: attachment; filename="Shayyek.apk"
   Cache-Control: no-cache
+
+# Security headers for the web app pages (the API and legal pages get theirs from the Worker).
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self)
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'

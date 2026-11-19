@@ -645,7 +645,8 @@ export function createApp() {
 
   app.get("/api/auth/status", async (c) => {
     const admin = await first(c.env.DB, "SELECT id FROM admin_users LIMIT 1");
-    return c.json({ needs_setup: !admin, setup_enabled: !admin && !!c.env.SETUP_TOKEN, missing_secrets: missingSecrets(c.env) });
+    // Which server secrets are missing is shown only before the first-time setup (it helps the installer, not a visitor).
+    return c.json({ needs_setup: !admin, setup_enabled: !admin && !!c.env.SETUP_TOKEN, missing_secrets: admin ? [] : missingSecrets(c.env) });
   });
 
   app.post("/api/auth/setup", async (c) => {
@@ -685,12 +686,13 @@ export function createApp() {
     );
     const now = Date.now();
     if (user?.locked_until && user.locked_until > now) return apiError(c, 429, "locked", "الحساب مقفل مؤقتًا بسبب محاولات فاشلة");
-    const valid = user ? await verifyPassword(p.data.password, user.password_hash, c.env.PASSWORD_PEPPER) : false;
+    // An unknown name costs the same password work as a known one, so the answer time does not reveal which names exist.
+    const valid = user
+      ? await verifyPassword(p.data.password, user.password_hash, c.env.PASSWORD_PEPPER)
+      : (await hashPassword(p.data.password, c.env.PASSWORD_PEPPER || "x", Number(c.env.PBKDF2_ITERATIONS || 100_000)), false);
     if (!user || !valid) {
-      if (user) {
-        const fails = user.failed_attempts + 1;
-        await run(c.env.DB, "UPDATE admin_users SET failed_attempts = ?, locked_until = ?, updated_at = ? WHERE id = ?", fails, fails >= 5 ? now + 15 * 60_000 : null, now, user.id);
-      }
+      if (user) await loginFailed(c.env, user, "password", now);
+      else await audit(c.env.DB, OWNER_TENANT, "system", "auth.login_failed", undefined, { reason: "unknown_user" }).catch(() => undefined);
       return apiError(c, 401, "invalid_credentials", "بيانات الدخول غير صحيحة");
     }
     // Two-step login: after the right password, the authenticator code (or a one-time recovery code).
@@ -698,8 +700,7 @@ export function createApp() {
       if (!p.data.totp) return apiError(c, 401, "totp_required", "اكتب رمز التحقق من تطبيق المصادقة");
       const ok = await checkSecondFactor(c.env, user, p.data.totp, now);
       if (!ok) {
-        const fails = user.failed_attempts + 1;
-        await run(c.env.DB, "UPDATE admin_users SET failed_attempts = ?, locked_until = ?, updated_at = ? WHERE id = ?", fails, fails >= 5 ? now + 15 * 60_000 : null, now, user.id);
+        await loginFailed(c.env, user, "totp", now);
         return apiError(c, 401, "invalid_totp", "رمز التحقق غير صحيح أو انتهى وقته — اكتب الرمز الحالي من التطبيق");
       }
       if (ok === "recovery") await audit(c.env.DB, user.tenant_id, user.username, "auth.recovery_code_used");
@@ -4492,6 +4493,21 @@ export function createApp() {
 
 /** The follow requirement is allowed only when the owner enabled it on a connected (non-demo) account. */
 /** Owner switch: whether customers see the campaign step «المتابعة» (invitation / requirement). The owner always does. */
+/**
+ * A failed sign-in on a known account: counted toward the 15-minute lock (5 fails), written to the audit log, and when
+ * the account locks the customer and the owner are alerted (owner alerts capped so a wave of attempts cannot flood).
+ */
+async function loginFailed(env: Env, user: { id: number; username: string; tenant_id: number; failed_attempts: number }, reason: "password" | "totp", now: number): Promise<void> {
+  const fails = user.failed_attempts + 1;
+  const locks = fails >= 5;
+  await run(env.DB, "UPDATE admin_users SET failed_attempts = ?, locked_until = ?, updated_at = ? WHERE id = ?", fails, locks ? now + 15 * 60_000 : null, now, user.id);
+  await audit(env.DB, user.tenant_id, user.username, locks ? "auth.locked" : "auth.login_failed", undefined, { reason, fails }).catch(() => undefined);
+  if (!locks) return;
+  await notify(env, user.tenant_id, "system", `🔒 انقفل الدخول لحساب «${user.username}» 15 دقيقة\nبسبب 5 محاولات دخول خاطئة. إذا مو أنت، غيّر كلمة المرور وفعّل التحقق بخطوتين.`, undefined, { link: "/settings" });
+  if (user.tenant_id !== OWNER_TENANT && (await rateLimit(env.DB, "alert:login_lock", 5, 3_600_000)))
+    await notify(env, OWNER_TENANT, "system", `🔒 حساب «${user.username}» انقفل 15 دقيقة\nبسبب 5 محاولات دخول خاطئة — راجع سجل التدقيق إذا تكرر.`);
+}
+
 const FOLLOW_STEP_SWITCH = "follow_step_customers";
 async function followStepShown(db: D1Database, isOwner: boolean | number | undefined): Promise<boolean> {
   return !!isOwner || (await getSetting<boolean>(db, OWNER_TENANT, FOLLOW_STEP_SWITCH, true));
