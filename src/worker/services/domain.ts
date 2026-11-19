@@ -43,7 +43,7 @@ export async function domainInfo(env: Env, now = Date.now(), force = false): Pro
   const cached = await getSetting<DomainInfo | null>(env.DB, OWNER_TENANT, "domain_info", null);
   if (!force && cached && cached.name === name && now - cached.checked_at < 86_400_000) return cached;
   const tld = name.split(".").pop()!;
-  const headers = { Accept: "application/rdap+json, application/json", "User-Agent": "Shayyek/1.0 (+https://hsnreply.online)" };
+  const headers = { Accept: "application/rdap+json, application/json", "User-Agent": "Shayyek/1.0 (+https://shayyek.sa)" };
   // The registry's RDAP server from IANA's official bootstrap file, then known fallbacks.
   const bases: string[] = [];
   try {

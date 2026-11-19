@@ -34,7 +34,7 @@ export interface Env {
   EMAIL_FROM?: string;
   /** Optional: Moyasar (moyasar.com) secret key for card payments in SAR; sk_test_… for the sandbox. */
   MOYASAR_SECRET_KEY?: string;
-  /** The service's own domain (e.g. hsnreply.online), for its expiry date. */
+  /** The service's own domain (e.g. shayyek.sa), for its expiry date. */
   SERVICE_DOMAIN?: string;
   /** Its registration / expiry dates (YYYY-MM-DD) from the registrar, for registries without RDAP. */
   SERVICE_DOMAIN_REGISTERED?: string;
