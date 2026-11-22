@@ -83,11 +83,13 @@ describe("support center: tickets", () => {
     expect((await call("/api/owner/support", OWNER)).body[0]).toMatchObject({ id, priority: "urgent", category: "tech" });
   });
 
-  it("attachments: an image up to 5 MB or a video up to 25 MB, on the customer's own new message", async () => {
+  it("attachments: an image up to 5 MB, a video up to 25 MB or a PDF up to 10 MB, on the customer's own new message", async () => {
     const A = await customer("shop_a");
     const r = (await call("/api/support", A, "POST", { category: "question", subject: "صورة الخطأ", body: "مرفقة" })).body;
     const path = `/api/support/${r.id}/messages/${r.message_id}/attachment`;
-    expect((await upload(path, A, "application/pdf", 100)).status).toBe(422);
+    // Unsupported types and files over the limit are refused (PDF is allowed up to 10 MB).
+    expect((await upload(path, A, "application/zip", 100)).status).toBe(422);
+    expect((await upload(path, A, "application/pdf", 10 * 1024 * 1024 + 1)).status).toBe(422);
     expect((await upload(path, A, "image/png", 5 * 1024 * 1024 + 1)).status).toBe(422);
     expect((await upload(path, A, "image/png", 2048)).status).toBe(200);
     expect((await upload(path, A, "image/png", 2048)).status).toBe(409); // one file per message
