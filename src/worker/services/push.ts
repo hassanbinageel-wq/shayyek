@@ -218,7 +218,8 @@ export async function pushToTenant(env: Env, tenantId: number, msg: PushMessage,
                 token: s.endpoint,
                 notification: { title: payload.title, body: payload.body || undefined },
                 data: { link: payload.link },
-                android: { priority: "HIGH", notification: { sound: "default" } },
+                // "alerts" is the app's high-importance channel: shown on top of the screen (heads-up) with sound.
+                android: { priority: "HIGH", ttl: "86400s", notification: { channel_id: "alerts", sound: "default", default_vibrate_timings: true, notification_priority: "PRIORITY_HIGH", visibility: "PUBLIC", tag: payload.link } },
               },
             }),
           });

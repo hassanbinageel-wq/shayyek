@@ -80,6 +80,7 @@ export async function enablePush(): Promise<boolean> {
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") perm = await PushNotifications.requestPermissions();
     if (perm.receive !== "granted") return false;
+    await PushNotifications.createChannel({ id: "alerts", name: "تنبيهات شيّك", description: "الإشعارات المهمة من شيّك", importance: 5, visibility: 1, sound: "default", vibration: true, lights: true }).catch(() => undefined);
     const token = await nativeToken();
     await api("/api/push/subscribe", { method: "POST", body: { kind: "fcm", endpoint: token } });
     store.set(NATIVE_TOKEN, token);
@@ -135,6 +136,8 @@ export async function initNativePush(): Promise<void> {
   if (!isNative || started) return;
   started = true;
   const { PushNotifications } = await import("@capacitor/push-notifications");
+  // High-importance channel: notifications pop on top of the screen with sound, even with the app closed.
+  await PushNotifications.createChannel({ id: "alerts", name: "تنبيهات شيّك", description: "الإشعارات المهمة من شيّك", importance: 5, visibility: 1, sound: "default", vibration: true, lights: true }).catch(() => undefined);
   // With the app open, the phone does not show the notification itself: show it inside the app.
   await PushNotifications.addListener("pushNotificationReceived", (n) => {
     window.dispatchEvent(new CustomEvent("shayyek:push", { detail: { title: n.title, body: n.body } }));
