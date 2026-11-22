@@ -1,4 +1,5 @@
-import { disablePush, initNativePush } from "./lib/push";
+import { autoAskNative, disablePush, initNativePush } from "./lib/push";
+import { PushPrompt } from "./components/PushPrompt";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type AnchorHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { api, setCsrf, setUnauthorizedHandler } from "./api";
 import { deviceToken, initNative, isNative, watchNetwork } from "./platform";
@@ -167,7 +168,7 @@ export function App() {
   useEffect(() => setBlocked(null), [route]);
   // Android app: a tap on a push notification opens its page; a renewed device token is re-registered.
   useEffect(() => {
-    if (auth === "in") void initNativePush().catch(() => undefined);
+    if (auth === "in") void initNativePush().then(autoAskNative).catch(() => undefined);
   }, [auth]);
   const [online, setOnline] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -473,6 +474,7 @@ export function App() {
               <Alert tone="warn">لا يوجد اتصال بالإنترنت. الأتمتة مستمرة على الخادم؛ ستتحدث البيانات عند عودة الاتصال.</Alert>
             </div>
           )}
+          {route === "/" && <PushPrompt />}
           <Suspense fallback={<Spinner />}>{page}</Suspense>
         </main>
       </div>

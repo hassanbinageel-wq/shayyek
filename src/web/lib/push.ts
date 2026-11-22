@@ -110,6 +110,26 @@ export async function disablePush(): Promise<void> {
 }
 
 /** App start (Android): a tap on a notification opens its page; a renewed device token is sent again. */
+const ASKED = "hsn_push_asked";
+
+/**
+ * Right after the first sign-in on a device, offer notifications once: the app shows the phone's own permission
+ * dialog; the website (which needs a tap first) shows a small banner. A "no" is never asked again — Settings can still turn it on.
+ */
+export async function autoAskNative(): Promise<void> {
+  if (!isNative || store.get(ASKED)) return;
+  store.set(ASKED, "1");
+  if ((await pushEnabled()) || !(await pushAvailable())) return;
+  await enablePush().catch(() => undefined);
+}
+export async function shouldOfferWeb(): Promise<boolean> {
+  if (!webCapable() || needsHomeScreen() || store.get(ASKED) || Notification.permission !== "default") return false;
+  return !(await pushEnabled());
+}
+export function markAsked(): void {
+  store.set(ASKED, "1");
+}
+
 let started = false;
 export async function initNativePush(): Promise<void> {
   if (!isNative || started) return;
