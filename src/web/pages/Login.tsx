@@ -2,7 +2,7 @@ import { Icon } from "../components/Icon";
 import { BrandLogo } from "../components/Brand";
 import { Suspense, lazy, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, setCsrf } from "../api";
-import { API_BASE, deviceToken, isNative, openExternal } from "../platform";
+import { API_BASE, deviceToken, isNative, openExternal, PLAY_BUILD } from "../platform";
 import { Alert, Field } from "../components/ui";
 import type { Catalog } from "../components/PlansShowcase";
 
@@ -233,7 +233,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
               <a href="#/plans" className="text-xs font-semibold text-violet-700 underline dark:text-violet-300">تغيير</a>
             </div>
           )}
-          {register && !cardSignup && !status?.needs_setup && (
+          {register && !cardSignup && !status?.needs_setup && !PLAY_BUILD && (
             <>
               <Field label="كود التفعيل" hint="يصلك بعد الاشتراك، مثل: HSN-XXXX-XXXX-XXXX">
                 <input className="input" dir="ltr" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="HSN-XXXX-XXXX-XXXX" required />
@@ -292,7 +292,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
             ) : (
               <div className="space-y-1.5">
                 <a href="#/plans" className="btn btn-ghost min-h-11 w-full border-red-500/30 text-red-600 dark:text-red-400">
-                  <Icon name="zap" size={17} />جديد؟ شوف الباقات وابدأ
+                  <Icon name="zap" size={17} />{PLAY_BUILD ? "جديد؟ ابدأ مجانًا" : "جديد؟ شوف الباقات وابدأ"}
                 </a>
                 <p className="flex flex-wrap items-center justify-center gap-x-4 text-center text-sm">
                   <a href="#/forgot" className="inline-flex min-h-10 items-center font-semibold text-violet-700 underline dark:text-violet-300">نسيت كلمة المرور؟</a>
@@ -350,7 +350,7 @@ function PublicPlansPage() {
           <h1 className="font-display mt-3 text-[28px] font-extrabold leading-tight sm:text-4xl">اختر الباقة المناسبة لحسابك</h1>
           <p className="muted mx-auto mt-2 max-w-xl text-sm leading-relaxed">ردود تلقائية على تعليقات وستوري إنستقرام عبر واجهة Meta الرسمية — بدون كلمة مرور، وبدون أي أدوات غير رسمية.</p>
         </div>
-        {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={data} startPlanId={data.plans.find((p) => p.free)?.id ?? null} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
+        {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : PLAY_BUILD && !data.plans.some((p) => p.free) ? <p className="muted text-center text-sm">إنشاء حساب جديد غير متاح من التطبيق حاليًا.</p> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={PLAY_BUILD ? { ...data, plans: data.plans.filter((p) => p.free) } : data} startPlanId={data.plans.find((p) => p.free)?.id ?? null} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
         <p className="muted text-center text-[11px] leading-relaxed">
           خدمة تقدّمها مؤسسة لمسة كورة للتجارة — مكة المكرمة
           <br />

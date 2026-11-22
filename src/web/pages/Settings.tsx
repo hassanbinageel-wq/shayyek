@@ -5,7 +5,7 @@ import { ChangePasswordCard } from "../components/ChangePassword";
 import { isStaff } from "../lib/me";
 import { askText } from "../components/Confirm";
 import { api } from "../api";
-import { APP_VERSION, isNative } from "../platform";
+import { APP_VERSION, isNative, PLAY_BUILD } from "../platform";
 import { Link } from "../App";
 import { NotificationsCard } from "../components/NotificationsCard";
 import { PushCard } from "../components/PushCard";
@@ -210,7 +210,7 @@ function HolderSettings({ onLogout, username }: SettingsProps) {
               {isNative && <BiometricRow />}
               <div className="muted mt-4 border-t border-[var(--border)] pt-4 text-sm">
                 الإصدار: واجهة <b>{APP_VERSION}</b> ({isNative ? "Android" : "ويب/PWA"}) · خادم <b>{data.app_version}</b>
-                <Link to="/download" className="mr-2 font-semibold text-violet-600 underline dark:text-violet-300">تنزيل أحدث APK</Link>
+                {!PLAY_BUILD && <Link to="/download" className="mr-2 font-semibold text-violet-600 underline dark:text-violet-300">تنزيل أحدث APK</Link>}
               </div>
             </Card>
             {/* The privacy policy, terms and Meta's data-deletion page promise this from the settings. */}

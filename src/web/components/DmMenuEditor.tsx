@@ -1,3 +1,4 @@
+import { PLAY_BUILD } from "../platform";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { Icon } from "./Icon";
@@ -68,7 +69,7 @@ export function DmMenuEditor() {
   return (
     <div className="space-y-4">
       {!available && (
-        <Alert tone="warn">القائمة التلقائية مو ضمن باقتك الحالية. تقدر تجهّزها الحين، والتشغيل يحتاج باقة فيها «القائمة التلقائية» — <a className="font-bold underline" href="#/subscription">اشتراكي</a>.</Alert>
+        <Alert tone="warn">القائمة التلقائية مو ضمن باقتك الحالية. تقدر تجهّزها الحين، والتشغيل يحتاج باقة فيها «القائمة التلقائية»{PLAY_BUILD ? "." : <> — <a className="font-bold underline" href="#/subscription">اشتراكي</a>.</>}</Alert>
       )}
       <div className={`card flex items-center gap-3 p-4 ${menu.enabled ? "ring-1 ring-emerald-400/60" : ""}`}>
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-xl">💬</span>

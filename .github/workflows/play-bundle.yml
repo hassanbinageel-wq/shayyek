@@ -1,0 +1,121 @@
+# Builds the Google Play version (signed .aab): the same app without any purchase/payment screens or APK download
+# links (Google Play payments policy). Published as a pre-release "play-v<version>" so it never replaces the APK
+# release the website serves at /app.apk. Manual only.
+name: Google Play bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (x.y.z) — use the same as the latest APK release or higher"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-bundle
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: release
+    permissions:
+      contents: write # publish the pre-release with the .aab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve version
+        id: v
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then echo "Invalid version: $VERSION"; exit 1; fi
+          CODE=$(( ${BASH_REMATCH[1]} * 1000000 + ${BASH_REMATCH[2]} * 1000 + ${BASH_REMATCH[3]} ))
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Build the Play web bundle (no payments)
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          VITE_DISTRIBUTION: play
+        run: |
+          set -euo pipefail
+          if [[ ! "$VITE_API_BASE" =~ ^https:// ]]; then echo "::error::Repository variable VITE_API_BASE must be an https URL"; exit 1; fi
+          npm version --no-git-tag-version --allow-same-version "${{ steps.v.outputs.version }}"
+          npx vite build --mode capacitor
+          npx cap sync android
+
+      - name: Firebase config for push notifications
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then echo "::error::ANDROID_GOOGLE_SERVICES_JSON secret is missing"; exit 1; fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Decode upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "HSN_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Gradle bundle
+        working-directory: android
+        env:
+          HSN_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          HSN_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          HSN_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon bundleRelease -PversionCode=${{ steps.v.outputs.code }} -PversionName=${{ steps.v.outputs.version }}
+
+      - name: Verify signature and checksum
+        id: aab
+        run: |
+          set -euo pipefail
+          OUT=shayyek-play-v${{ steps.v.outputs.version }}.aab
+          cp android/app/build/outputs/bundle/release/app-release.aab "$OUT"
+          jarsigner -verify -certs "$OUT" | tee verify.txt
+          grep -q "jar verified" verify.txt
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Publish pre-release (never "latest")
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+          FILE: ${{ steps.aab.outputs.file }}
+        run: |
+          set -euo pipefail
+          TAG="play-v$V"
+          NOTES="Google Play bundle for Shayyek v$V (versionCode ${{ steps.v.outputs.code }}). Upload this .aab in Play Console. Not for direct install."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$FILE" "$FILE.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$FILE" "$FILE.sha256" --repo "$GITHUB_REPOSITORY" --title "Google Play bundle v$V" --notes "$NOTES" --target "$GITHUB_SHA" --prerelease --latest=false
+          fi

@@ -1,4 +1,4 @@
-import { API_BASE, deviceToken, isNative } from "./platform";
+import { API_BASE, deviceToken, isNative, PLAY_BUILD } from "./platform";
 
 export class ApiError extends Error {
   constructor(
@@ -14,6 +14,8 @@ export class ApiError extends Error {
 /** A customer's plan does not include what they tried: the app shows an "upgrade" box (see UpgradeModal). */
 const PLAN_CODES = new Set(["plan_feature", "plan_event", "plan_campaigns", "plan_draws", "subscription_inactive", "monthly_limit_reached"]);
 export function notifyPlanBlocked(message: string) {
+  // The Google Play build says what the plan lacks, without pointing to an upgrade (no purchases in that app).
+  if (PLAY_BUILD) message = message.replace(/\s*—\s*رق.*$/u, "");
   window.dispatchEvent(new CustomEvent("hsn:plan-blocked", { detail: { message } }));
 }
 

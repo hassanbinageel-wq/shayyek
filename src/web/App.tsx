@@ -2,7 +2,7 @@ import { autoAskNative, disablePush, initNativePush } from "./lib/push";
 import { PushPrompt } from "./components/PushPrompt";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type AnchorHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { api, setCsrf, setUnauthorizedHandler } from "./api";
-import { deviceToken, initNative, isNative, watchNetwork } from "./platform";
+import { deviceToken, initNative, isNative, PLAY_BUILD, watchNetwork } from "./platform";
 import { Alert, Modal, Spinner, ToastHost, setTipsShown, setTz, tipsShown, toast } from "./components/ui";
 import { FEATURE_LABELS, type PlanLimits } from "../shared/plans";
 import { enableBio, takeBioOffer } from "./lib/biometric";
@@ -114,7 +114,8 @@ const NAV_GROUPS: Array<{ title: string; items: Array<{ to: string; label: strin
     { to: "/connection", label: "الربط", icon: "link" },
     { to: "/settings", label: "الإعدادات", icon: "settings" },
     { to: "/staff", label: "الموظفين", icon: "users" },
-    { to: "/download", label: "تنزيل التطبيق", icon: "smartphone" },
+    // Not in the Google Play app (Play does not allow pointing to app downloads outside the store).
+    ...(PLAY_BUILD ? [] : [{ to: "/download", label: "تنزيل التطبيق", icon: "smartphone" }]),
   ] },
 ];
 /** Customers only: their subscription page. */
@@ -333,7 +334,7 @@ export function App() {
       case "/inbox": page = <InboxPage />; break;
       case "/simulator": page = <SimulatorPage />; break;
       case "/settings": page = <SettingsPage theme={theme} setTheme={setTheme} onLogout={logout} username={username} />; break;
-      case "/download": page = <DownloadPage />; break;
+      case "/download": page = PLAY_BUILD ? <DashboardPage /> : <DownloadPage />; break;
       case "/owner": page = isOwner ? <OwnerPage /> : <DashboardPage />; break;
       case "/usage": page = isOwner ? <UsagePage /> : <DashboardPage />; break;
       case "/store": page = <StorePage />; break;
@@ -376,7 +377,7 @@ export function App() {
     const locked = lockedFeature(to);
     if (locked)
       return (
-        <button type="button" className={`${className ?? ""} w-full text-right`} onClick={() => { setMenuOpen(false); setBlocked(`باقتك لا تشمل: ${locked} — رقِّ باقتك من صفحة «اشتراكي»`); }}>
+        <button type="button" className={`${className ?? ""} w-full text-right`} onClick={() => { setMenuOpen(false); setBlocked(PLAY_BUILD ? `باقتك لا تشمل: ${locked}` : `باقتك لا تشمل: ${locked} — رقِّ باقتك من صفحة «اشتراكي»`); }}>
           {children}
           <Icon name="lock" size={14} className="mr-auto opacity-60" />
         </button>
@@ -481,9 +482,9 @@ export function App() {
             <div className="mb-4">
               <Alert tone={sub.active ? "warn" : "bad"}>
                 {sub.active
-                  ? `اشتراكك ينتهي خلال ${Math.max(1, Math.ceil(((sub.expires_at ?? 0) - Date.now()) / 86_400_000))} يوم — جدّده حتى لا تتوقف الردود.`
+                  ? `اشتراكك ينتهي خلال ${Math.max(1, Math.ceil(((sub.expires_at ?? 0) - Date.now()) / 86_400_000))} يوم${PLAY_BUILD ? "." : " — جدّده حتى لا تتوقف الردود."}`
                   : sub.reason === "expired" ? "انتهى اشتراكك — الردود التلقائية متوقفة." : "لا يوجد اشتراك فعّال — الردود التلقائية لن تعمل قبل التفعيل."}{" "}
-                <Link to="/subscription" className="font-bold underline">{sub.active ? "جدّد الحين" : sub.reason === "expired" ? "جدّد اشتراكك" : "اختر باقتك"}</Link>
+                {!PLAY_BUILD && <Link to="/subscription" className="font-bold underline">{sub.active ? "جدّد الحين" : sub.reason === "expired" ? "جدّد اشتراكك" : "اختر باقتك"}</Link>}
               </Alert>
             </div>
           )}
@@ -546,7 +547,7 @@ export function App() {
         </div>
       )}
       {route === "/" && <HelpWidget center={supportCenter} isOwner={isOwner} />}
-      {!isOwner && <PromoLayer route={route} />}
+      {!isOwner && !PLAY_BUILD && <PromoLayer route={route} />}
       <ToastHost />
       {bioOffer && (
         <Modal open center onClose={() => setBioOffer(null)} title="الدخول بالبصمة">
@@ -583,7 +584,7 @@ export function App() {
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400"><Icon name="lock" size={26} /></span>
             <p className="font-display text-base font-bold leading-relaxed">{blocked}</p>
             <div className="flex gap-2">
-              <button
+              {!PLAY_BUILD && <button
                 className="btn btn-primary flex-1"
                 onClick={() => {
                   setBlocked(null);
@@ -592,7 +593,7 @@ export function App() {
                 }}
               >
                 <Icon name="zap" size={17} />رقِّ اشتراكي
-              </button>
+              </button>}
               <button className="btn btn-ghost" onClick={() => setBlocked(null)}>لاحقًا</button>
             </div>
           </div>

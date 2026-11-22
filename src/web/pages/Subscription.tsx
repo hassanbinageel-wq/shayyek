@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { askConfirm } from "../components/Confirm";
 import { isStaff } from "../lib/me";
-import { isNative, openExternal } from "../platform";
+import { isNative, openExternal, PLAY_BUILD } from "../platform";
 import { api } from "../api";
 import { Icon } from "../components/Icon";
 import { PlansShowcase } from "../components/PlansShowcase";
@@ -151,7 +151,7 @@ export function SubscriptionPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-extrabold leading-tight sm:text-[26px]">اشتراكي</h1>
-        <p className="muted mt-1 text-sm">باقتك الحالية واستهلاكك هذا الشهر، وتفعيل الكود.</p>
+        <p className="muted mt-1 text-sm">{PLAY_BUILD ? "باقتك الحالية واستهلاكك هذا الشهر." : "باقتك الحالية واستهلاكك هذا الشهر، وتفعيل الكود."}</p>
       </header>
       {payResult && (
         payResult.status === "paid" ? <Alert tone="good">{payResult.topup_messages ? `✅ تم الشحن: انضافت ${payResult.topup_messages.toLocaleString("en-US")} رسالة لرصيدك والردود التلقائية رجعت تشتغل.` : payResult.upgrade ? "✅ تم دفع الفرق وترقّت باقتك — تاريخ الانتهاء نفسه." : `✅ تم الدفع وتفعّلت باقتك${payResult.days ? ` (${payResult.days} يوم)` : ""}. شكرًا لك!`}</Alert>
@@ -163,7 +163,7 @@ export function SubscriptionPage() {
           {data.reason === "expired" ? `انتهى اشتراكك${data.expires_at ? ` في ${fmtTime(data.expires_at)}` : ""}` : "لا يوجد اشتراك فعّال"} — الردود التلقائية متوقفة حتى تجدّد اشتراكك. بياناتك وحملاتك محفوظة.
         </Alert>
       ) : daysLeft !== null && daysLeft <= 3 ? (
-        <Alert tone="warn">اشتراكك ينتهي خلال {daysLeft} {daysLeft === 1 ? "يوم" : "أيام"} — جدّده بكود جديد حتى لا تتوقف الردود. الأيام المتبقية تُضاف للكود الجديد.</Alert>
+        <Alert tone="warn">اشتراكك ينتهي خلال {daysLeft} {daysLeft === 1 ? "يوم" : "أيام"}{PLAY_BUILD ? "." : " — جدّده حتى لا تتوقف الردود. الأيام المتبقية تُضاف للتجديد."}</Alert>
       ) : null}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="باقتك" action={data.active ? <span className="chip bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-current" />فعّال</span> : <span className="chip bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">غير فعّال</span>}>
@@ -178,8 +178,21 @@ export function SubscriptionPage() {
             </div>
           )}
         </Card>
-        {canUpgrade ? <div id="upgrade" className="scroll-mt-20"><UpgradeCard data={data} onPay={goPay} /></div> : <ReferralCard />}
+        {canUpgrade && !PLAY_BUILD ? <div id="upgrade" className="scroll-mt-20"><UpgradeCard data={data} onPay={goPay} /></div> : <ReferralCard />}
       </div>
+      {PLAY_BUILD ? (
+        // Google Play build: no purchases in the app — only the free plan can be started here.
+        hasFree && !data.active && !isStaff() ? (
+          <>
+            {freeNeedsEmail && (
+              <div id="free-email" className="scroll-mt-20">
+                <AccountEmailCard title="📧 أكّد إيميلك لتفعيل الباقة المجانية" intro="الباقة المجانية تحتاج إيميل مؤكَّد (مو إيميل مؤقت). اكتب إيميلك ويوصلك رمز تأكيد." onVerified={reloadEmail} />
+              </div>
+            )}
+            <PlansShowcase catalog={{ ...data, plans: data.plans.filter((p: any) => p.free) }} currentPlanId={data.plan?.id} onCardPay={payCard} />
+          </>
+        ) : null
+      ) : <>
       {data.active && !isStaff() && <TopupCard />}
       {canUpgrade && <ReferralCard />}
       <h2 id="plans" className="font-display scroll-mt-20 pt-2 text-lg font-extrabold">الباقات وطرق الدفع</h2>
@@ -209,6 +222,7 @@ export function SubscriptionPage() {
           )}
         </Card>
       )}
+      </>}
     </div>
   );
 }

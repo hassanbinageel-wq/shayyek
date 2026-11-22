@@ -3,7 +3,7 @@ import { askConfirm } from "./Confirm";
 import { Alert, Card, fmtTime, toast, useAsync } from "./ui";
 import { Icon } from "./Icon";
 import { Link } from "../App";
-import { isNative, openOAuth } from "../platform";
+import { isNative, openOAuth, PLAY_BUILD } from "../platform";
 import { useEffect, useState } from "react";
 
 /** Connect the customer's online store (Salla now, Zid later) through the platform's official approval page. */
@@ -36,7 +36,7 @@ export function StoreConnect() {
   return (
     <Card title={<span className="flex items-center gap-2"><span className="grad grid size-6 shrink-0 place-items-center rounded-full text-xs font-extrabold text-white" aria-hidden>2</span>ربط المتجر <span className="muted text-xs font-normal">(اختياري)</span></span>} action={salla ? <Link to="/store" className="btn btn-ghost min-h-9 text-xs"><Icon name="chart" size={15} />تحليل المتجر</Link> : undefined}>
       <p className="muted mb-4 text-sm">بعد ربط إنستقرام، اربط متجرك عشان تعرف كم طلب ومبيعات وربح جابت كل حملة ومنشور. الربط رسمي من المنصة بصلاحيات <b>قراءة فقط</b> (الطلبات والمنتجات)، وما نحفظ بيانات المشترين الشخصية.</p>
-      {!data.plan && <Alert tone="warn">باقتك لا تشمل ربط المتجر — رقِّ باقتك من صفحة «اشتراكي».</Alert>}
+      {!data.plan && <Alert tone="warn">باقتك لا تشمل ربط المتجر{PLAY_BUILD ? "." : " — رقِّ باقتك من صفحة «اشتراكي»."}</Alert>}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {/* Salla */}
         <section className={`rounded-2xl border p-4 ${salla ? (active ? "border-emerald-500/40" : "border-amber-500/50") : "border-[var(--border)]"}`} aria-label="سلة">

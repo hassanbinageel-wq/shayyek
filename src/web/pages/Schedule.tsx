@@ -1,3 +1,4 @@
+import { PLAY_BUILD } from "../platform";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, navigate } from "../App";
 import { Icon } from "../components/Icon";
@@ -62,7 +63,7 @@ function PublishSetup({ meta, onChanged }: { meta: any; onChanged: () => void })
       <div className="space-y-3 text-sm">
         <p>نشر بوست بصورة، أو منشور متعدد، أو ريل، أو ستوري في وقت تحدده — والنظام ينشره عبر واجهة Meta الرسمية، ويقدر يشغّل حملة على المنشور أول ما ينتشر.</p>
         {!meta.plan ? (
-          <Alert tone="warn">باقتك لا تشمل جدولة النشر — رقِّ باقتك من صفحة «اشتراكي».</Alert>
+          <Alert tone="warn">باقتك لا تشمل جدولة النشر{PLAY_BUILD ? "." : " — رقِّ باقتك من صفحة «اشتراكي»."}</Alert>
         ) : !meta.connected ? (
           <Alert tone="warn">اربط حساب إنستقرام أولًا من <Link to="/connection" className="font-semibold underline">صفحة الربط</Link>.</Alert>
         ) : !meta.granted ? (

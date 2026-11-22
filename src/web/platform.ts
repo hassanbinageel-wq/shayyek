@@ -6,6 +6,11 @@ declare const __APP_VERSION__: string;
 export const APP_TARGET = __APP_TARGET__;
 export const APP_VERSION = __APP_VERSION__;
 export const isNative = APP_TARGET === "app" && Capacitor.isNativePlatform();
+/**
+ * The Google Play build: no purchase, top-up, upgrade or payment screens or links (Google Play payments policy).
+ * Subscriptions are bought on the website; the app shows the status and the free plan only.
+ */
+export const PLAY_BUILD = APP_TARGET === "app" && import.meta.env.VITE_DISTRIBUTION === "play";
 
 /** API origin: same origin for the PWA, the production HTTPS Worker for the APK. */
 export const API_BASE: string = APP_TARGET === "app" ? (import.meta.env.VITE_API_BASE as string) || "" : "";
