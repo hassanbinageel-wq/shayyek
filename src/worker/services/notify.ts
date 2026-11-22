@@ -293,9 +293,11 @@ export async function runPlanAlerts(env: Env, now = Date.now()): Promise<number>
     const cy = await usageCycle(env.DB, t.id, now);
     // The owner's automatic offer: few messages left but many days left in the subscription → a private discount.
     const msgLimit = ent.limits.monthly_messages;
-    if (autoRule.enabled && msgLimit !== null && ent.expires_at) {
-      const left = Math.max(0, msgLimit - (await monthlyMessages(env.DB, t.id, now)));
-      const daysLeft = Math.floor((ent.expires_at - now) / 86_400_000);
+    const usedMsgs = await monthlyMessages(env.DB, t.id, now);
+    const left = msgLimit === null ? null : Math.max(0, msgLimit - usedMsgs);
+    const daysLeft = ent.expires_at ? Math.floor((ent.expires_at - now) / 86_400_000) : null;
+    // Only customers who match the owner's thresholds cost any extra reads.
+    if (autoRule.enabled && left !== null && daysLeft !== null && left <= autoRule.max_left && daysLeft >= autoRule.min_days) {
       const name = (await first<{ name: string }>(env.DB, "SELECT name FROM tenants WHERE id = ?", t.id))?.name ?? "";
       const made = await maybeAutoOffer(env.DB, autoRule, { tenantId: t.id, name, left, daysLeft, cycleKey: cy.key }, now);
       if (made) {
@@ -306,7 +308,7 @@ export async function runPlanAlerts(env: Env, now = Date.now()): Promise<number>
     }
     const when = cy.resets_at ? `لين يتجدد العدّاد في ${new Date(cy.resets_at).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { day: "numeric", month: "long", timeZone: "Asia/Riyadh" })}` : "لين تجدد اشتراكك";
     const checks: Array<{ key: string; used: number; limit: number | null; what: string; full: string }> = [
-      { key: "messages", used: await monthlyMessages(env.DB, t.id, now), limit: ent.limits.monthly_messages, what: "رسائل باقتك لهذي الدورة", full: `الردود التلقائية متوقفة ${when} — تقدر تشحن رسائل إضافية أو ترقّي باقتك من «اشتراكي».` },
+      { key: "messages", used: usedMsgs, limit: ent.limits.monthly_messages, what: "رسائل باقتك لهذي الدورة", full: `الردود التلقائية متوقفة ${when} — تقدر تشحن رسائل إضافية أو ترقّي باقتك من «اشتراكي».` },
       { key: "draws", used: ent.limits.draws_per_month ? await drawsThisMonth(env.DB, t.id, now) : 0, limit: ent.limits.draws_per_month || null, what: "سحوبات باقتك لهذي الدورة", full: `ما تقدر تسوي سحب جديد ${when} أو ترقّي باقتك من «اشتراكي».` },
     ];
     for (const c of checks) {
