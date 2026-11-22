@@ -166,6 +166,24 @@ export function App() {
   }, []);
   // The box belongs to the page that raised it: moving to another page closes it.
   useEffect(() => setBlocked(null), [route]);
+  // A push that arrives while the app is open: shown as a message, and the bell refreshes.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ title?: string; body?: string }>).detail;
+      toast([d.title, d.body].filter(Boolean).join(" — ") || "إشعار جديد", "info");
+    };
+    window.addEventListener("shayyek:push", on);
+    return () => window.removeEventListener("shayyek:push", on);
+  }, []);
+  // The subscription page shares the fresh status, so the "expired" banner goes away right after renewing.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const x = (e as CustomEvent<{ active?: boolean; expires_at?: number | null; reason?: string } | undefined>).detail;
+      if (x && typeof x.active === "boolean") setSub({ active: x.active, expires_at: x.expires_at ?? null, reason: x.reason });
+    };
+    window.addEventListener("shayyek:usage", on);
+    return () => window.removeEventListener("shayyek:usage", on);
+  }, []);
   // Android app: a tap on a push notification opens its page; a renewed device token is re-registered.
   useEffect(() => {
     if (auth === "in") void initNativePush().then(autoAskNative).catch(() => undefined);
@@ -465,7 +483,7 @@ export function App() {
                 {sub.active
                   ? `اشتراكك ينتهي خلال ${Math.max(1, Math.ceil(((sub.expires_at ?? 0) - Date.now()) / 86_400_000))} يوم — جدّده حتى لا تتوقف الردود.`
                   : sub.reason === "expired" ? "انتهى اشتراكك — الردود التلقائية متوقفة." : "لا يوجد اشتراك فعّال — الردود التلقائية لن تعمل قبل التفعيل."}{" "}
-                <Link to="/subscription" className="font-bold underline">أدخل كود التفعيل</Link>
+                <Link to="/subscription" className="font-bold underline">{sub.active ? "جدّد الحين" : sub.reason === "expired" ? "جدّد اشتراكك" : "اختر باقتك"}</Link>
               </Alert>
             </div>
           )}

@@ -59,7 +59,7 @@ import {
 import { claimsDelivery, claimsFollowRequired, publicReplyVariants } from "../shared/template";
 import { cacheMediaStmt } from "./services/media";
 import { INBOX_LABELS, markRead, recordMessage, refreshAvatars, type InboxLabel } from "./services/inbox";
-import { fcmConfigured, pushToTenant, removeSubscription, saveSubscription, vapidPublicKey } from "./services/push";
+import { deviceCount, fcmConfigured, pushToTenant, removeSubscription, saveSubscription, vapidPublicKey } from "./services/push";
 import { buildDailyReport, deleteOwnerMessage, detectChat, getNotifySettings, hasBotToken, isTelegramToken, notify, receiptUpdate, remindOwnerMessage, saveBotToken, sendOwnerMessage, sendTelegram } from "./services/notify";
 import { MESSAGING_WINDOW_MS } from "./engine/context";
 import { estimateUsage, platformUsage } from "./services/usage";
@@ -853,8 +853,10 @@ export function createApp() {
   api.post("/push/test", async (c) => {
     const s = c.get("session");
     if (!(await rateLimit(c.env.DB, `push_test:${s.user_id}`, 5, 3_600_000))) return apiError(c, 429, "rate_limited", "جرّبت كثير — حاول بعد ساعة");
-    const sent = await pushToTenant(c.env, s.tenant_id, { title: "🔔 تجربة إشعار من شيّك", body: "الإشعارات شغّالة على أجهزتك.", link: "/settings" });
-    return c.json({ ok: true, sent });
+    const devices = await deviceCount(c.env, s.tenant_id);
+    // Sent after a short wait, so there is time to close the app (a phone does not show a push for the app that is open).
+    if (devices) c.executionCtx.waitUntil(new Promise((r) => setTimeout(r, 8_000)).then(() => pushToTenant(c.env, s.tenant_id, { title: "🔔 تجربة إشعار من شيّك", body: "الإشعارات شغّالة على أجهزتك.", link: "/settings" })));
+    return c.json({ ok: true, devices });
   });
 
   // ---- Two-step login (every account): set up with an authenticator app, confirm with a code, turn off.

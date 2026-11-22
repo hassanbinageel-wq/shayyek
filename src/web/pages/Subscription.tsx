@@ -43,7 +43,7 @@ export function SubscriptionPage() {
   const { data, loading, error, reload } = useAsync(() => api<any>("/api/subscription"), []);
   // The sidebar's messages card follows what this page shows.
   useEffect(() => {
-    if (data) window.dispatchEvent(new Event("shayyek:usage"));
+    if (data) window.dispatchEvent(new CustomEvent("shayyek:usage", { detail: { active: data.active, expires_at: data.expires_at, reason: data.reason } }));
   }, [data]);
   const { data: email, reload: reloadEmail } = useAsync(() => api<{ email: string | null; verified: boolean; enabled: boolean }>("/api/account/email").catch(() => null), []);
   const freePlan = data?.plans?.find((p: any) => p.free);
@@ -160,7 +160,7 @@ export function SubscriptionPage() {
       )}
       {!data.active ? (
         <Alert tone="bad">
-          {data.reason === "expired" ? `انتهى اشتراكك${data.expires_at ? ` في ${fmtTime(data.expires_at)}` : ""}` : "لا يوجد اشتراك فعّال"} — الردود التلقائية متوقفة حتى تُدخل كود تفعيل. بياناتك وحملاتك محفوظة.
+          {data.reason === "expired" ? `انتهى اشتراكك${data.expires_at ? ` في ${fmtTime(data.expires_at)}` : ""}` : "لا يوجد اشتراك فعّال"} — الردود التلقائية متوقفة حتى تجدّد اشتراكك. بياناتك وحملاتك محفوظة.
         </Alert>
       ) : daysLeft !== null && daysLeft <= 3 ? (
         <Alert tone="warn">اشتراكك ينتهي خلال {daysLeft} {daysLeft === 1 ? "يوم" : "أيام"} — جدّده بكود جديد حتى لا تتوقف الردود. الأيام المتبقية تُضاف للكود الجديد.</Alert>

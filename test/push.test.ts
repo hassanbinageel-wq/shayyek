@@ -135,6 +135,10 @@ describe("push notifications", () => {
     const body = JSON.parse(String(sent[1].init.body));
     expect(body.message.token).toBe("fcm-device-token-123");
     expect(body.message.data.link).toBe("/");
+    const row = await DB.prepare("SELECT last_status, last_error, last_sent_at FROM push_subscriptions").first<any>();
+    expect(row.last_status).toBe(200);
+    expect(row.last_error).toBeNull();
+    expect(row.last_sent_at).toBeGreaterThan(0);
   });
 
   it("subscribes through the API, refuses foreign endpoints, and unsubscribes", async () => {

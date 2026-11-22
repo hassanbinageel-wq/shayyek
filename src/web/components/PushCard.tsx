@@ -34,8 +34,8 @@ export function PushCard() {
   const test = async () => {
     setBusy(true);
     try {
-      const r = await api<{ sent: number }>("/api/push/test", { method: "POST", body: {} });
-      toast(r.sent ? "أرسلنا إشعار تجربة — شيّك على جهازك" : "ما فيه جهاز مفعّل يستقبل الحين", r.sent ? "good" : "bad");
+      const r = await api<{ devices: number }>("/api/push/test", { method: "POST", body: {} });
+      toast(r.devices ? "سكّر التطبيق الحين — الإشعار بيوصلك خلال 10 ثواني" : "ما فيه جهاز مفعّل يستقبل الحين", r.devices ? "good" : "bad");
     } catch (e: any) {
       toast(e?.message || "ما قدرنا نرسل التجربة", "bad");
     } finally {

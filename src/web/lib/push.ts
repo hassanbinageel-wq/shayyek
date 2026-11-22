@@ -135,6 +135,10 @@ export async function initNativePush(): Promise<void> {
   if (!isNative || started) return;
   started = true;
   const { PushNotifications } = await import("@capacitor/push-notifications");
+  // With the app open, the phone does not show the notification itself: show it inside the app.
+  await PushNotifications.addListener("pushNotificationReceived", (n) => {
+    window.dispatchEvent(new CustomEvent("shayyek:push", { detail: { title: n.title, body: n.body } }));
+  });
   await PushNotifications.addListener("pushNotificationActionPerformed", (a) => {
     const link = (a.notification.data as { link?: string } | undefined)?.link;
     if (typeof link === "string" && link.startsWith("/")) location.hash = `#${link}`;

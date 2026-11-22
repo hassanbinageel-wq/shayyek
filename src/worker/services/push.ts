@@ -168,6 +168,10 @@ export async function saveSubscription(env: Env, s: { tenantId: number; userId: 
 }
 
 /** Removes one device of this user (only theirs). */
+export async function deviceCount(env: Env, tenantId: number): Promise<number> {
+  return (await first<{ n: number }>(env.DB, "SELECT COUNT(*) AS n FROM push_subscriptions WHERE tenant_id = ?", tenantId))?.n ?? 0;
+}
+
 export async function removeSubscription(env: Env, userId: number, endpoint: string): Promise<void> {
   await run(env.DB, "DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?", userId, endpoint);
 }
@@ -187,6 +191,7 @@ export async function pushToTenant(env: Env, tenantId: number, msg: PushMessage,
     const sa = serviceAccount(env);
     let sent = 0;
     const dead: number[] = [];
+    const results: { id: number; status: number; error: string | null }[] = [];
     for (const s of subs) {
       try {
         if (s.kind === "web" && s.p256dh && s.auth) {
@@ -196,11 +201,15 @@ export async function pushToTenant(env: Env, tenantId: number, msg: PushMessage,
             headers: { Authorization: await vapidAuth(env, s.endpoint, now), "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: "86400", Urgency: "high" },
             body,
           });
+          results.push({ id: s.id, status: r.status, error: r.ok ? null : (await r.text().catch(() => "")).slice(0, 200) });
           if (r.ok) sent++;
           else if (r.status === 404 || r.status === 410) dead.push(s.id);
         } else if (s.kind === "fcm" && sa) {
           const token = await fcmAccessToken(sa, now);
-          if (!token) continue;
+          if (!token) {
+            results.push({ id: s.id, status: 0, error: "firebase sign-in failed (check FCM_SERVICE_ACCOUNT_JSON)" });
+            continue;
+          }
           const r = await fetchImpl(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(sa.project_id)}/messages:send`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -213,13 +222,19 @@ export async function pushToTenant(env: Env, tenantId: number, msg: PushMessage,
               },
             }),
           });
+          const err = r.ok ? null : (await r.text().catch(() => "")).slice(0, 300);
+          results.push({ id: s.id, status: r.status, error: err });
           if (r.ok) sent++;
-          else if (r.status === 404 || (r.status === 400 && /UNREGISTERED|registration token/i.test(await r.text()))) dead.push(s.id);
+          else if (r.status === 404 || (r.status === 400 && /UNREGISTERED|registration token/i.test(err ?? ""))) dead.push(s.id);
+        } else if (s.kind === "fcm") {
+          results.push({ id: s.id, status: 0, error: "server has no FCM_SERVICE_ACCOUNT_JSON" });
         }
       } catch (e) {
-        console.error("push failed", String(e).slice(0, 200));
+        results.push({ id: s.id, status: 0, error: String(e).slice(0, 200) });
       }
     }
+    if (results.length)
+      await env.DB.batch(results.map((x) => env.DB.prepare("UPDATE push_subscriptions SET last_status = ?, last_error = ?, last_sent_at = ? WHERE id = ?").bind(x.status, x.error, now, x.id)));
     if (dead.length) await run(env.DB, `DELETE FROM push_subscriptions WHERE id IN (${dead.map(() => "?").join(",")})`, ...dead);
     return sent;
   } catch (e) {
