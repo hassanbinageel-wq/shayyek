@@ -13,6 +13,7 @@ const RULES: Rule[] = [
   { re: /^\/account\/email(\/verify)?$/, perms: "any" },
   { re: /^\/account\/password(\/confirm)?$/, perms: "any" },
   { re: /^\/app-notifications(\/.*)?$/, perms: "any" },
+  { re: /^\/push\/(config|subscribe|unsubscribe|test)$/, perms: "any" },
   { re: /^\/(dashboard|account|settings|subscription|usage|promos|topups|cycle)$/, perms: "any", read: true },
   { re: /^\/offers\/\d+\/click$/, perms: "any" },
 

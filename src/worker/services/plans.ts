@@ -262,6 +262,7 @@ export async function deleteTenantData(db: D1Database, tenantId: number): Promis
     db.prepare("UPDATE free_activations SET tenant_id = 0 WHERE tenant_id = ?").bind(t),
     db.prepare("DELETE FROM app_settings WHERE substr(key, 1, ?) = ?").bind(`t${t}:`.length, `t${t}:`),
     db.prepare("DELETE FROM sessions WHERE user_id IN (SELECT id FROM admin_users WHERE tenant_id = ?)").bind(t),
+    db.prepare("DELETE FROM push_subscriptions WHERE tenant_id = ?").bind(t),
     db.prepare("DELETE FROM oauth_states WHERE user_id IN (SELECT id FROM admin_users WHERE tenant_id = ?)").bind(t),
     db.prepare("DELETE FROM admin_users WHERE tenant_id = ?").bind(t),
     db.prepare("DELETE FROM instagram_accounts WHERE tenant_id = ?").bind(t),

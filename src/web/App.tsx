@@ -1,3 +1,4 @@
+import { disablePush, initNativePush } from "./lib/push";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type AnchorHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { api, setCsrf, setUnauthorizedHandler } from "./api";
 import { deviceToken, initNative, isNative, watchNetwork } from "./platform";
@@ -164,6 +165,10 @@ export function App() {
   }, []);
   // The box belongs to the page that raised it: moving to another page closes it.
   useEffect(() => setBlocked(null), [route]);
+  // Android app: a tap on a push notification opens its page; a renewed device token is re-registered.
+  useEffect(() => {
+    if (auth === "in") void initNativePush().catch(() => undefined);
+  }, [auth]);
   const [online, setOnline] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(false);
@@ -270,6 +275,8 @@ export function App() {
 
   const logout = async () => {
     if (!(await askConfirm({ title: "تسجيل الخروج من حسابك؟", confirmLabel: "خروج", cancelLabel: "إلغاء", danger: true }))) return;
+    // This device stops getting the account's notifications (the next person to sign in here must not see them).
+    await disablePush().catch(() => undefined);
     await api("/api/auth/logout", { method: "POST", body: {} }).catch(() => undefined);
     await deviceToken.clear();
     setCsrf(null);

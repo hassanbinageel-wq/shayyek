@@ -29,6 +29,8 @@ export interface Env {
   SALLA_CLIENT_ID?: string;
   SALLA_CLIENT_SECRET?: string;
   SALLA_WEBHOOK_SECRET?: string;
+  /** Firebase service account (JSON) for push notifications to the Android app. */
+  FCM_SERVICE_ACCOUNT_JSON?: string;
   // Optional: Resend (resend.com) for password-recovery emails; sender address on the verified domain.
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;

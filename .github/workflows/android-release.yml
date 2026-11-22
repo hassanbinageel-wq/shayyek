@@ -88,6 +88,18 @@ jobs:
           npx vite build --mode capacitor
           npx cap sync android
 
+      - name: Firebase config for push notifications
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            if [ "$BUILD_TYPE" = release ]; then echo "::error::ANDROID_GOOGLE_SERVICES_JSON secret is missing (push notifications)"; exit 1; fi
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON not set — debug build without push notifications"; exit 0
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          node -e 'const j=require("./android/app/google-services.json"); if(!j.client?.some(c=>c.client_info?.android_client_info?.package_name==="sa.shayyek.app")) { console.error("::error::google-services.json is not for sa.shayyek.app"); process.exit(1) }'
+
       - name: Decode signing key
         if: env.BUILD_TYPE == 'release'
         env:

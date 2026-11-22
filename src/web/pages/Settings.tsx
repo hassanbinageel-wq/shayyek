@@ -8,6 +8,7 @@ import { api } from "../api";
 import { APP_VERSION, isNative } from "../platform";
 import { Link } from "../App";
 import { NotificationsCard } from "../components/NotificationsCard";
+import { PushCard } from "../components/PushCard";
 import { Icon } from "../components/Icon";
 import { Alert, Card, InfoDot, PageHeader, Spinner, Toggle, setTz, toast, useAsync } from "../components/ui";
 import { bioUser, disableBio } from "../lib/biometric";
@@ -44,6 +45,7 @@ function StaffSettings({ onLogout, username }: SettingsProps) {
     <div className="space-y-5">
       <PageHeader title="حسابي" subtitle={`أنت داخل كموظف (${username}) — إعدادات الحساب الكاملة عند صاحب الحساب.`} />
       <div className="grid gap-4 lg:grid-cols-2">
+        <PushCard />
         <AccountEmailCard />
         <ChangePasswordCard />
         <TwoFactorCard />
@@ -188,7 +190,8 @@ function HolderSettings({ onLogout, username }: SettingsProps) {
             </Card>
           </section>}
 
-          {active === "notifications" && <section id="set-notifications" className="max-w-3xl">
+          {active === "notifications" && <section id="set-notifications" className="max-w-3xl space-y-4">
+            <PushCard />
             <NotificationsCard />
           </section>}
 

@@ -1,6 +1,7 @@
 import { messagesGonePct } from "../../shared/usage";
 import type { Env } from "../env";
 import type { NotifyKind } from "../engine/context";
+import { pushToTenant } from "./push";
 import { decryptSecret, encryptSecret } from "../lib/crypto";
 import { all, first, getSetting, OWNER_TENANT, setSetting, settingKey } from "../lib/db";
 import { sanitize } from "../meta/client";
@@ -175,6 +176,12 @@ export async function notify(env: Env, tenantId: number, kind: NotifyKind, text:
       await setSetting(env.DB, tenantId, key, Date.now());
     }
     await addAppNotification(env.DB, tenantId, kind, text, Date.now(), opts.link).catch((e) => console.error("app notification failed", sanitize(String(e))));
+    // The same important notifications reach the customer's phones and computers (push), even with the app closed.
+    const link = opts.link ?? IN_APP[kind];
+    if (link !== undefined) {
+      const [title, ...rest] = text.split("\n");
+      await pushToTenant(env, tenantId, { title, body: rest.join("\n").trim() || null, link });
+    }
     const s = await getNotifySettings(env.DB, tenantId);
     if (!s.enabled || !s.chat_id) return;
     const on: Record<NotifyKind, boolean> = {

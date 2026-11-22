@@ -59,6 +59,7 @@ import {
 import { claimsDelivery, claimsFollowRequired, publicReplyVariants } from "../shared/template";
 import { cacheMediaStmt } from "./services/media";
 import { INBOX_LABELS, markRead, recordMessage, refreshAvatars, type InboxLabel } from "./services/inbox";
+import { fcmConfigured, pushToTenant, removeSubscription, saveSubscription, vapidPublicKey } from "./services/push";
 import { buildDailyReport, deleteOwnerMessage, detectChat, getNotifySettings, hasBotToken, isTelegramToken, notify, receiptUpdate, remindOwnerMessage, saveBotToken, sendOwnerMessage, sendTelegram } from "./services/notify";
 import { MESSAGING_WINDOW_MS } from "./engine/context";
 import { estimateUsage, platformUsage } from "./services/usage";
@@ -833,6 +834,29 @@ export function createApp() {
   const api = new Hono<AppEnv>();
   api.use("*", requireAuth);
 
+  // ---- Push notifications on this device (phone or computer), even with the app closed.
+  api.get("/push/config", async (c) => c.json({ vapid_public_key: await vapidPublicKey(c.env), fcm: fcmConfigured(c.env) }));
+  api.post("/push/subscribe", async (c) => {
+    const p = await parseBody(c, z.object({ kind: z.enum(["web", "fcm"]), endpoint: z.string().trim().min(10).max(1000), p256dh: z.string().max(200).optional(), auth: z.string().max(100).optional() }));
+    if (!p.ok) return p.res;
+    const s = c.get("session");
+    const ok = await saveSubscription(c.env, { tenantId: s.tenant_id, userId: s.user_id, ...p.data });
+    if (!ok) return apiError(c, 422, "bad_subscription", "ما قدرنا نفعّل الإشعارات على هذا الجهاز");
+    return c.json({ ok: true });
+  });
+  api.post("/push/unsubscribe", async (c) => {
+    const p = await parseBody(c, z.object({ endpoint: z.string().trim().min(10).max(1000) }));
+    if (!p.ok) return p.res;
+    await removeSubscription(c.env, c.get("session").user_id, p.data.endpoint);
+    return c.json({ ok: true });
+  });
+  api.post("/push/test", async (c) => {
+    const s = c.get("session");
+    if (!(await rateLimit(c.env.DB, `push_test:${s.user_id}`, 5, 3_600_000))) return apiError(c, 429, "rate_limited", "جرّبت كثير — حاول بعد ساعة");
+    const sent = await pushToTenant(c.env, s.tenant_id, { title: "🔔 تجربة إشعار من شيّك", body: "الإشعارات شغّالة على أجهزتك.", link: "/settings" });
+    return c.json({ ok: true, sent });
+  });
+
   // ---- Two-step login (every account): set up with an authenticator app, confirm with a code, turn off.
   api.get("/auth/totp", async (c) => {
     const u = await first<{ totp_enabled_at: number | null; totp_recovery: string | null }>(c.env.DB, "SELECT totp_enabled_at, totp_recovery FROM admin_users WHERE id = ?", c.get("session").user_id);
@@ -990,7 +1014,10 @@ export function createApp() {
     if (p.data.display_name) await run(c.env.DB, "UPDATE admin_users SET display_name = ?, updated_at = ? WHERE id = ?", p.data.display_name, now, u.id);
     if (p.data.disabled !== undefined) {
       await run(c.env.DB, "UPDATE admin_users SET disabled_at = ?, updated_at = ? WHERE id = ?", p.data.disabled ? now : null, now, u.id);
-      if (p.data.disabled) await run(c.env.DB, "UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL", now, u.id);
+      if (p.data.disabled) {
+        await run(c.env.DB, "UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL", now, u.id);
+        await run(c.env.DB, "DELETE FROM push_subscriptions WHERE user_id = ?", u.id);
+      }
     }
     await audit(c.env.DB, T(c), c.get("session").username, "staff.updated", u.username, p.data);
     return c.json({ ok: true });
@@ -1018,6 +1045,7 @@ export function createApp() {
     if (!u) return apiError(c, 404, "not_found", "الموظف غير موجود");
     await c.env.DB.batch([
       c.env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
+      c.env.DB.prepare("DELETE FROM push_subscriptions WHERE user_id = ?").bind(u.id),
       c.env.DB.prepare("DELETE FROM oauth_states WHERE user_id = ?").bind(u.id),
       c.env.DB.prepare("DELETE FROM password_resets WHERE user_id = ?").bind(u.id),
       c.env.DB.prepare("DELETE FROM email_codes WHERE user_id = ?").bind(u.id),

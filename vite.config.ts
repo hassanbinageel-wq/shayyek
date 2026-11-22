@@ -50,11 +50,13 @@ export default defineConfig(({ mode }) => {
             globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
             // Remix Icon (glyph list + font, ~350 KB) is fetched only where an icon is shown, not at install.
             // The PDF tools load only for the owner's report download: not worth precaching for every visitor.
-            globIgnores: ["**/remixicon-*", "**/jspdf*", "**/html2canvas*", "**/purify*", "**/index.es-*"],
+            globIgnores: ["**/push-sw.js", "**/remixicon-*", "**/jspdf*", "**/html2canvas*", "**/purify*", "**/index.es-*"],
             navigateFallback: "/index.html",
             // Server routes: tracked campaign links (/l/), media (/m/), card links (/c/) — never the app shell.
             navigateFallbackDenylist: [/^\/api\//, /^\/l\//, /^\/m\//, /^\/c\//, /^\/webhooks\//, /^\/oauth\//, /^\/meta\//, /^\/privacy/, /^\/terms/, /^\/refund/, /^\/data-deletion/, /^\/healthz/, /^\/app\.apk/, /^\/pricing/],
             runtimeCaching: [],
+            // Push notifications: shows them and opens the right page on tap (public/push-sw.js).
+            importScripts: ["/push-sw.js"],
             cleanupOutdatedCaches: true,
           },
         }),
