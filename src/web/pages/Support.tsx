@@ -46,6 +46,7 @@ export function SupportInbox({ mode }: { mode: "customer" | "owner" }) {
   const [fState, setFState] = useState<string>("active");
   const [fCat, setFCat] = useState<string>("");
   const [fPri, setFPri] = useState<string>("");
+  const [fChan, setFChan] = useState<"" | "app" | "email">("");
   const load = () => api<any[]>(base).then(setList).catch((e) => toast(e.message, "bad"));
   useEffect(() => {
     load();
@@ -71,14 +72,25 @@ export function SupportInbox({ mode }: { mode: "customer" | "owner" }) {
         (fState === "" || (fState === "active" ? t.state !== "resolved" : t.state === fState)) &&
         (!fCat || t.category === fCat) &&
         (!fPri || t.priority === fPri) &&
+        (!fChan || (t.channel ?? "app") === fChan) &&
         (!nq || [t.subject, t.last_body, t.tenant_name, t.tenant_usernames, t.ig_username, String(ticketNo(t.id))].some((v) => v && normText(String(v)).includes(nq))),
     );
-  }, [list, q, fState, fCat, fPri]);
+  }, [list, q, fState, fCat, fPri, fChan]);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className={`card min-w-0 p-2 sm:p-3 ${open !== null || creating ? "hidden lg:block" : ""}`}>
         {mode === "customer" && <button className="btn btn-primary mb-2 w-full" onClick={() => { setCreating(true); setOpen(null); }}><Icon name="plus" size={16} />فتح طلب دعم</button>}
         <div className="mb-2 space-y-2">
+          {mode === "owner" && (
+            <div className="flex gap-1 rounded-xl bg-[var(--surface-2)] p-1 text-xs font-bold" role="tablist" aria-label="مصدر الطلب">
+              {([["", "الكل"], ["app", "📱 الموقع"], ["email", "📧 الإيميل"]] as const).map(([k, l]) => (
+                <button key={k} type="button" role="tab" aria-selected={fChan === k} onClick={() => setFChan(k)} className={`flex-1 rounded-lg px-2 py-1.5 transition ${fChan === k ? "bg-[var(--surface)] text-violet-700 shadow-sm" : "muted"}`}>
+                  {l}
+                  {list ? <span className="mr-1 opacity-60">{list.filter((t) => !k || (t.channel ?? "app") === k).filter((t) => t.state !== "resolved").length}</span> : null}
+                </button>
+              ))}
+            </div>
+          )}
           <input className="input min-h-9 py-1.5 text-sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder={mode === "owner" ? "بحث: رقم الطلب، العنوان، العميل…" : "بحث في طلباتك"} aria-label="بحث" />
           <div className={`grid gap-1.5 ${mode === "owner" ? "grid-cols-3" : "grid-cols-1"}`}>
             <select className="input min-h-8 min-w-0 px-2 py-1 text-xs" value={fState} onChange={(e) => setFState(e.target.value)} aria-label="الحالة">
@@ -110,6 +122,7 @@ export function SupportInbox({ mode }: { mode: "customer" | "owner" }) {
                   <span className="muted shrink-0 text-[11px] font-bold" dir="ltr">#{ticketNo(t.id)}</span>
                   <b className="min-w-0 flex-1 truncate text-sm">{t.subject}</b>
                   {!!t.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-pink-600" aria-label="جديد" />}
+                  {mode === "owner" && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${t.channel === "email" ? "bg-sky-500/10 text-sky-700" : "bg-violet-500/10 text-violet-700"}`}>{t.channel === "email" ? "📧 إيميل" : "📱 الموقع"}</span>}
                   <StateChip state={t.state} mode={mode} />
                 </div>
                 {mode === "owner" && <Who t={t} />}
