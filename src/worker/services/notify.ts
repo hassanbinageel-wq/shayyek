@@ -11,6 +11,7 @@ import { domainInfo } from "./domain";
 import { drawsThisMonth, getEntitlement, monthlyMessages, usageCycle } from "./plans";
 import { weeklyReport, weeklyText } from "./growth";
 import { topupSettings } from "./topups";
+import { autoOfferRule, maybeAutoOffer } from "./offers";
 import { tzOffsetMinutes } from "./analytics";
 import { serviceDomain } from "./domain";
 import { DEFAULT_MESSAGE_TEMPLATES, fillMessage, OUT_OF_MESSAGES_TEMPLATE, type MessageTemplates } from "../../shared/messageTemplates";
@@ -285,10 +286,24 @@ export async function runPlanAlerts(env: Env, now = Date.now()): Promise<number>
   if (Math.floor(now / 60_000) % 10 !== 3) return 0;
   const tenants = await all<{ id: number }>(env.DB, "SELECT id FROM tenants WHERE status = 'active' AND is_owner = 0 ORDER BY id");
   let sent = 0;
+  const autoRule = await autoOfferRule(env.DB);
   for (const t of tenants) {
     const ent = await getEntitlement(env.DB, t.id, now);
     if (!ent.active) continue;
     const cy = await usageCycle(env.DB, t.id, now);
+    // The owner's automatic offer: few messages left but many days left in the subscription → a private discount.
+    const msgLimit = ent.limits.monthly_messages;
+    if (autoRule.enabled && msgLimit !== null && ent.expires_at) {
+      const left = Math.max(0, msgLimit - (await monthlyMessages(env.DB, t.id, now)));
+      const daysLeft = Math.floor((ent.expires_at - now) / 86_400_000);
+      const name = (await first<{ name: string }>(env.DB, "SELECT name FROM tenants WHERE id = ?", t.id))?.name ?? "";
+      const made = await maybeAutoOffer(env.DB, autoRule, { tenantId: t.id, name, left, daysLeft, cycleKey: cy.key }, now);
+      if (made) {
+        await notify(env, t.id, "plan", `${made.title}\n${made.body}`, undefined, { link: "/subscription?topup=1" });
+        await notify(env, OWNER_TENANT, "plan", `🤖 عرض تلقائي: «${name || t.id}» باقي له ${left.toLocaleString("en-US")} رسالة و${daysLeft} يوم — انرسل له خصم ${autoRule.pct}%.`, undefined, { link: "/owner?tab=offers" });
+        sent++;
+      }
+    }
     const when = cy.resets_at ? `لين يتجدد العدّاد في ${new Date(cy.resets_at).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { day: "numeric", month: "long", timeZone: "Asia/Riyadh" })}` : "لين تجدد اشتراكك";
     const checks: Array<{ key: string; used: number; limit: number | null; what: string; full: string }> = [
       { key: "messages", used: await monthlyMessages(env.DB, t.id, now), limit: ent.limits.monthly_messages, what: "رسائل باقتك لهذي الدورة", full: `الردود التلقائية متوقفة ${when} — تقدر تشحن رسائل إضافية أو ترقّي باقتك من «اشتراكي».` },

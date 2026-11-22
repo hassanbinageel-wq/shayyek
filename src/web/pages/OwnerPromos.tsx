@@ -217,9 +217,9 @@ function TopupSettingsCard({ initial }: { initial: TopupSettings }) {
 type Audience = "all" | "plans" | "except_plans" | "tenants";
 type OfferForm = {
   id?: number; title: string; body: string; cta: string; link: string; custom_link: string; theme: string; icon: string; starts_at: number | null; ends_at: number | null;
-  audience: Audience; tenant_ids: number[]; plan_ids: string[]; discount_pct: number | null; discount_plans: string[]; active: boolean;
+  audience: Audience; tenant_ids: number[]; plan_ids: string[]; discount_pct: number | null; discount_plans: string[]; discount_scope: "plans" | "topups" | "both"; active: boolean;
 };
-const EMPTY_OFFER: OfferForm = { title: "", body: "", cta: "استفد الحين", link: "/subscription", custom_link: "", theme: "violet", icon: "🎁", starts_at: null, ends_at: null, audience: "all", tenant_ids: [], plan_ids: [], discount_pct: null, discount_plans: [], active: true };
+const EMPTY_OFFER: OfferForm = { title: "", body: "", cta: "استفد الحين", link: "/subscription", custom_link: "", theme: "violet", icon: "🎁", starts_at: null, ends_at: null, audience: "all", tenant_ids: [], plan_ids: [], discount_pct: null, discount_plans: [], discount_scope: "plans", active: true };
 const AUDIENCES: Array<[Audience, string]> = [["all", "كل العملاء"], ["plans", "مشتركين باقات"], ["except_plans", "الكل ماعدا باقات"], ["tenants", "عملاء أختارهم"]];
 
 /** Who an offer is for, in words (cards and details). */
@@ -227,6 +227,58 @@ export function audienceText(o: { audience: string; tenant_ids: number[]; plan_i
   const names = (o.plan_ids ?? []).map((id) => plans.find((p) => p.id === id)?.name ?? id).join("، ");
   return o.audience === "all" ? "كل العملاء" : o.audience === "tenants" ? `${o.tenant_ids.length} عميل مختار` : o.audience === "plans" ? `مشتركين: ${names}` : `الكل ماعدا: ${names}`;
 }
+const SCOPES = [["plans", "الباقات (اشتراك وتجديد وترقية)"], ["topups", "شحن الرسائل"], ["both", "الاثنين"]] as const;
+
+type AutoOffer = { enabled: boolean; max_left: number; min_days: number; pct: number; scope: "topups" | "both"; hours: number; title: string; body: string; theme: string };
+
+/** The owner's automatic rule: few messages left + many days left → a private discount offer, once per cycle. */
+function AutoOfferCard() {
+  const { data, loading, reload } = useAsync(() => api<{ rule: AutoOffer; made: number }>("/api/owner/auto-offer"), []);
+  const [f, setF] = useState<AutoOffer | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (data) setF(data.rule); }, [data]);
+  if (loading && !f) return <Spinner />;
+  if (!f) return null;
+  const set = (p: Partial<AutoOffer>) => setF({ ...f, ...p });
+  const num = (v: string, min: number, max: number) => Math.max(min, Math.min(max, Math.round(+v || min)));
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api("/api/owner/auto-offer", { method: "PUT", body: f });
+      toast(f.enabled ? "انحفظ — النظام بيفحص العملاء كل 10 دقايق" : "انحفظ (موقوف)");
+      reload();
+    } catch (e: any) {
+      toast(e.message, "bad");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card>
+      <div className="space-y-3">
+        <Toggle checked={f.enabled} onChange={(v) => set({ enabled: v })} label="🤖 عرض تلقائي لمن قربت رسائله تخلص" description="إذا العميل باقي له رسائل قليلة وأيام كثيرة في اشتراكه، يوصله عرض خصم خاص فيه تلقائيًا — مرة وحدة في كل دورة." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="إذا باقي له رسائل أقل من أو يساوي"><input className="input" type="number" min={0} max={100000} value={f.max_left} onChange={(e) => set({ max_left: num(e.target.value, 0, 100000) })} /></Field>
+          <Field label="وباقي في اشتراكه أيام على الأقل"><input className="input" type="number" min={1} max={365} value={f.min_days} onChange={(e) => set({ min_days: num(e.target.value, 1, 365) })} /></Field>
+          <Field label="نسبة الخصم %"><input className="input" type="number" min={1} max={90} value={f.pct} onChange={(e) => set({ pct: num(e.target.value, 1, 90) })} /></Field>
+          <Field label="مدة العرض (ساعات)"><input className="input" type="number" min={1} max={720} value={f.hours} onChange={(e) => set({ hours: num(e.target.value, 1, 720) })} /></Field>
+        </div>
+        <Field label="الخصم على">
+          <div className="flex flex-wrap gap-1.5">
+            {SCOPES.filter(([v]) => v !== "plans").map(([v, l]) => (
+              <button key={v} type="button" className={`chip ${f.scope === v ? "bg-violet-500/15 text-violet-700 dark:text-violet-300" : "surface-2"}`} onClick={() => set({ scope: v as AutoOffer["scope"] })}>{f.scope === v ? "✓ " : ""}{l}</button>
+            ))}
+          </div>
+        </Field>
+        <Field label="العنوان"><input className="input" maxLength={60} value={f.title} onChange={(e) => set({ title: e.target.value })} /></Field>
+        <Field label="النص"><textarea className="input min-h-20" maxLength={200} value={f.body} onChange={(e) => set({ body: e.target.value })} /></Field>
+        <p className="muted text-xs">تقدر تستخدم: {"{الاسم}"} {"{الخصم}"} {"{المتبقي}"} {"{الأيام}"}{data && data.made ? ` · انرسل تلقائيًا ${data.made} عرض لين الحين` : ""}</p>
+        <div className="flex justify-end"><button className="btn btn-primary" disabled={busy} onClick={save}>حفظ</button></div>
+      </div>
+    </Card>
+  );
+}
+
 const ICONS = ["🎁", "🔥", "⚡", "🚀", "💜", "⭐", "🎉", "💰", "📣", "⏳"];
 
 export function OffersTab() {
@@ -245,6 +297,7 @@ export function OffersTab() {
         <p className="muted text-sm">بوكس جانبي بحركة وعدّاد تنازلي يظهر لكل العملاء أو لعملاء تختارهم، ولما يضغطون يروحون للمكان اللي تحدده.</p>
         <button className="btn btn-primary" onClick={() => setEdit({ ...EMPTY_OFFER, ends_at: Date.now() + 3 * 86_400_000 })}><Icon name="plus" size={18} />عرض جديد</button>
       </div>
+      <AutoOfferCard />
       {!data.offers.length ? <Card><p className="muted py-6 text-center text-sm">ما فيه عروض بعد.</p></Card> : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {data.offers.map((o: any) => {
@@ -253,12 +306,12 @@ export function OffersTab() {
               <Card key={o.id} className="self-start">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <span className={`chip ${cls}`}>{l}</span>
-                  <span className="muted text-xs">{audienceText(o, plans ?? [])}{o.discount_pct ? ` · خصم ${o.discount_pct}%` : ""} · {o.clicks} ضغطة</span>
+                  <span className="muted text-xs">{audienceText(o, plans ?? [])}{o.auto_key ? " · 🤖 تلقائي" : ""}{o.discount_pct ? ` · خصم ${o.discount_pct}%${o.discount_scope === "topups" ? " على الشحن" : o.discount_scope === "both" ? " على الباقات والشحن" : ""}` : ""} · {o.clicks} ضغطة</span>
                 </div>
                 <OfferCard o={o} now={now} />
                 <div className="mt-3 flex justify-end gap-2">
                   <button className="btn btn-ghost min-h-9 text-xs" onClick={() => setStatsFor(o)}><Icon name="chart" size={15} />التفاصيل والتحليل</button>
-                  <button className="btn btn-ghost min-h-9 text-xs" onClick={() => setEdit({ ...EMPTY_OFFER, ...o, discount_pct: o.discount_pct ?? null, body: o.body ?? "", cta: o.cta ?? "", icon: o.icon ?? "", link: OFFER_LINKS.some((x) => x.to === o.link) ? o.link : "custom", custom_link: OFFER_LINKS.some((x) => x.to === o.link) ? "" : o.link })}>تعديل</button>
+                  <button className="btn btn-ghost min-h-9 text-xs" onClick={() => setEdit({ ...EMPTY_OFFER, ...o, discount_pct: o.discount_pct ?? null, discount_scope: o.discount_scope ?? "plans", body: o.body ?? "", cta: o.cta ?? "", icon: o.icon ?? "", link: OFFER_LINKS.some((x) => x.to === o.link) ? o.link : "custom", custom_link: OFFER_LINKS.some((x) => x.to === o.link) ? "" : o.link })}>تعديل</button>
                 </div>
               </Card>
             );
@@ -299,7 +352,7 @@ function OfferModal({ offer, onClose, onDone }: { offer: OfferForm; onClose: () 
         title: f.title, body: f.body || null, cta: f.cta || null, link: f.link === "custom" ? f.custom_link.trim() : f.link, theme: f.theme, icon: f.icon || null,
         starts_at: f.starts_at, ends_at: f.ends_at, audience: f.audience, tenant_ids: f.audience === "tenants" ? f.tenant_ids : undefined,
         plan_ids: f.audience === "plans" || f.audience === "except_plans" ? f.plan_ids : undefined,
-        discount_pct: f.discount_pct || null, discount_plans: f.discount_pct ? f.discount_plans : null, active: f.active,
+        discount_pct: f.discount_pct || null, discount_plans: f.discount_pct ? f.discount_plans : null, discount_scope: f.discount_scope, active: f.active,
       };
       await api(f.id ? `/api/owner/offers/${f.id}` : "/api/owner/offers", { method: f.id ? "PUT" : "POST", body });
       toast(f.id ? "انحفظ العرض" : "انضاف العرض");
@@ -382,14 +435,21 @@ function OfferModal({ offer, onClose, onDone }: { offer: OfferForm; onClose: () 
             )}
           </Field>
           <div className="surface-2 space-y-2 rounded-2xl p-3">
-            <Toggle checked={!!f.discount_pct} onChange={(v) => set({ discount_pct: v ? 30 : null })} label="خصم فعلي عند الدفع" description="ينخصم من سعر البطاقة والترقية تلقائيًا — بس للعملاء اللي يظهر لهم هذا العرض، ولين ينتهي." />
+            <Toggle checked={!!f.discount_pct} onChange={(v) => set({ discount_pct: v ? 30 : null })} label="خصم فعلي عند الدفع" description="ينخصم تلقائيًا عند الدفع بالبطاقة — بس للعملاء اللي يظهر لهم هذا العرض، ولين ينتهي." />
             {!!f.discount_pct && (
               <>
                 <Field label="نسبة الخصم %"><input className="input w-28" type="number" min={1} max={90} value={f.discount_pct} onChange={(e) => set({ discount_pct: Math.max(1, Math.min(90, +e.target.value || 1)) })} /></Field>
-                <div className="space-y-1">
+                <Field label="الخصم على">
+                  <div className="flex flex-wrap gap-1.5">
+                    {SCOPES.map(([v, l]) => (
+                      <button key={v} type="button" className={`chip ${f.discount_scope === v ? "bg-violet-500/15 text-violet-700 dark:text-violet-300" : "surface-2"}`} onClick={() => set({ discount_scope: v })}>{f.discount_scope === v ? "✓ " : ""}{l}</button>
+                    ))}
+                  </div>
+                </Field>
+                {f.discount_scope !== "topups" && <div className="space-y-1">
                   <span className="muted text-xs">على باقات (بدون اختيار = كل الباقات):</span>
                   {planChips(f.discount_plans, (v) => set({ discount_plans: v }))}
-                </div>
+                </div>}
               </>
             )}
           </div>

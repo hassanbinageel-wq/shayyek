@@ -1,4 +1,4 @@
-import { all, first, run } from "../lib/db";
+import { all, first, getSetting, OWNER_TENANT, run } from "../lib/db";
 import type { Offer } from "../../shared/promos";
 
 /**
@@ -8,7 +8,7 @@ import type { Offer } from "../../shared/promos";
  */
 
 type OfferRow = Offer & {
-  audience: string; tenant_ids: string | null; plan_ids: string | null; discount_pct: number | null; discount_plans: string | null;
+  audience: string; tenant_ids: string | null; plan_ids: string | null; discount_pct: number | null; discount_plans: string | null; discount_scope: string | null; auto_key: string | null;
   active: number; views: number; clicks: number; created_at: number; updated_at: number;
 };
 
@@ -37,8 +37,9 @@ async function runningFor(db: D1Database, tenantId: number, now: number): Promis
 
 /** Offers running now for one customer, the soonest to end first. */
 export async function offersFor(db: D1Database, tenantId: number, now = Date.now()): Promise<Offer[]> {
-  return (await runningFor(db, tenantId, now)).map(({ id, title, body, cta, link, theme, icon, starts_at, ends_at, discount_pct, discount_plans }) => ({
+  return (await runningFor(db, tenantId, now)).map(({ id, title, body, cta, link, theme, icon, starts_at, ends_at, discount_pct, discount_plans, discount_scope }) => ({
     id, title, body, cta, link, theme, icon, starts_at, ends_at, discount_pct: discount_pct ?? null, discount_plans: discount_plans ? ids<string>(discount_plans) : null,
+    discount_scope: (discount_scope as Offer["discount_scope"]) ?? "plans",
   }));
 }
 
@@ -46,10 +47,75 @@ export async function offersFor(db: D1Database, tenantId: number, now = Date.now
 export async function offerDiscount(db: D1Database, tenantId: number, planId: string, now = Date.now()): Promise<{ pct: number; offer_id: number } | null> {
   let best: { pct: number; offer_id: number } | null = null;
   for (const o of await runningFor(db, tenantId, now)) {
-    if (!o.discount_pct || (o.discount_plans && !ids<string>(o.discount_plans).includes(planId))) continue;
+    if (!o.discount_pct || o.discount_scope === "topups" || (o.discount_plans && !ids<string>(o.discount_plans).includes(planId))) continue;
     if (!best || o.discount_pct > best.pct) best = { pct: o.discount_pct, offer_id: o.id };
   }
   return best;
+}
+
+/** The best running offer discount this customer has on message top-ups, if any. */
+export async function topupDiscount(db: D1Database, tenantId: number, now = Date.now()): Promise<{ pct: number; offer_id: number } | null> {
+  let best: { pct: number; offer_id: number } | null = null;
+  for (const o of await runningFor(db, tenantId, now)) {
+    if (!o.discount_pct || (o.discount_scope !== "topups" && o.discount_scope !== "both")) continue;
+    if (!best || o.discount_pct > best.pct) best = { pct: o.discount_pct, offer_id: o.id };
+  }
+  return best;
+}
+
+/** The owner's automatic offer: when a customer is close to running out of messages but has many days left. */
+export type AutoOffer = {
+  enabled: boolean;
+  /** Messages left in the cycle at or below this. */
+  max_left: number;
+  /** Days left in the subscription at or above this. */
+  min_days: number;
+  pct: number;
+  scope: "topups" | "both";
+  hours: number;
+  title: string;
+  body: string;
+  theme: string;
+};
+export const DEFAULT_AUTO_OFFER: AutoOffer = {
+  enabled: false,
+  max_left: 50,
+  min_days: 10,
+  pct: 20,
+  scope: "topups",
+  hours: 48,
+  title: "🎁 خصم {الخصم}% على شحن الرسائل",
+  body: "باقي لك {المتبقي} رسالة و{الأيام} يوم في اشتراكك — اشحن الحين بخصم {الخصم}% قبل لا تتوقف الردود.",
+  theme: "violet",
+};
+
+export async function autoOfferRule(db: D1Database): Promise<AutoOffer> {
+  return { ...DEFAULT_AUTO_OFFER, ...(await getSetting<Partial<AutoOffer> | null>(db, OWNER_TENANT, "auto_low_messages_offer", null)) };
+}
+
+/**
+ * Applies the owner's automatic rule to one customer (called with their current usage): at most one such offer per
+ * usage cycle. Returns the new offer id, or null.
+ */
+export async function maybeAutoOffer(
+  db: D1Database,
+  rule: AutoOffer,
+  c: { tenantId: number; name: string; left: number; daysLeft: number | null; cycleKey: string },
+  now = Date.now(),
+): Promise<{ id: number; title: string; body: string } | null> {
+  if (!rule.enabled || c.daysLeft === null || c.left > rule.max_left || c.daysLeft < rule.min_days) return null;
+  const fill = (s: string) =>
+    s.replaceAll("{الخصم}", String(rule.pct)).replaceAll("{المتبقي}", c.left.toLocaleString("en-US")).replaceAll("{الأيام}", String(c.daysLeft)).replaceAll("{الاسم}", c.name);
+  const title = fill(rule.title).slice(0, 60);
+  const body = fill(rule.body).slice(0, 200);
+  const r = await run(
+    db,
+    `INSERT OR IGNORE INTO offers (title, body, cta, link, theme, icon, starts_at, ends_at, audience, tenant_ids, active, plan_ids, discount_pct, discount_plans, discount_scope, auto_key, created_at, updated_at)
+     VALUES (?, ?, ?, '/subscription', ?, '🎁', ?, ?, 'tenants', ?, 1, NULL, ?, NULL, ?, ?, ?, ?)`,
+    title, body, "اشحن الحين", rule.theme, now, now + rule.hours * 3_600_000, JSON.stringify([c.tenantId]), rule.pct, rule.scope, `low_messages:${c.tenantId}:${c.cycleKey}`, now, now,
+  );
+  if (!r.meta.changes) return null; // already made this cycle
+  return { id: Number(r.meta.last_row_id), title, body };
 }
 
 /** An amount in halalas after a discount (Moyasar's minimum is 1 SAR). */

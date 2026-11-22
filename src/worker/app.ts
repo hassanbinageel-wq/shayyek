@@ -104,7 +104,7 @@ import { CYCLE_MS, usageCycle, codeHash, deleteTenantData, drawsThisMonth, exten
 import { cardEnabled, cardPriceHalalas, createInvoice, isTestKey, payablePlan, PayError, startCardPayment, syncInvoice } from "./services/moyasar";
 import { planChangeBlock, quoteUpgrade } from "./services/upgrades";
 import { allPacks, applyTopup, startTopup, topupHistory, topupSettings, topupState } from "./services/topups";
-import { clickOffer, discounted, listOffers, markViewed, offerDiscount, offersFor, offerStats } from "./services/offers";
+import { autoOfferRule, clickOffer, discounted, listOffers, markViewed, offerDiscount, offersFor, offerStats } from "./services/offers";
 import { DEFAULT_OFFER_TEMPLATES, isOfferLink, OFFER_THEMES, topupSettingsOf, type OfferTemplate } from "../shared/promos";
 import { campaignSnapshot, drawSnapshots, listUndo, recordUndo, stopCampaignWork, undoOperation, UndoError } from "./services/undo";
 import { dataDeletionPage, deletionStatusPage, oauthResultPage, PAGE_CSP, pageLang, parseSignedRequest, privacyPage, refundPage, termsPage } from "./pages";
@@ -2051,6 +2051,7 @@ export function createApp() {
       plan_ids: z.array(z.string().max(20)).max(20).optional(),
       discount_pct: z.number().int().min(1).max(90).nullable().optional(),
       discount_plans: z.array(z.string().max(20)).max(20).nullable().optional(),
+      discount_scope: z.enum(["plans", "topups", "both"]).optional(),
       active: z.boolean().optional(),
     })
     .refine((d) => d.audience !== "tenants" || (d.tenant_ids?.length ?? 0) > 0, { message: "اختر عميل واحد على الأقل", path: ["tenant_ids"] })
@@ -2061,8 +2062,33 @@ export function createApp() {
     d.audience === "tenants" ? JSON.stringify(d.tenant_ids ?? []) : null, d.active === false ? 0 : 1,
     ["plans", "except_plans"].includes(d.audience) ? JSON.stringify(d.plan_ids ?? []) : null,
     d.discount_pct ?? null, d.discount_pct && d.discount_plans?.length ? JSON.stringify(d.discount_plans) : null,
+    d.discount_scope ?? "plans",
   ];
   owner.get("/offers", async (c) => c.json({ offers: await listOffers(c.env.DB), themes: OFFER_THEMES }));
+  owner.get("/auto-offer", async (c) => {
+    const made = await first<{ n: number }>(c.env.DB, "SELECT COUNT(*) AS n FROM offers WHERE auto_key IS NOT NULL");
+    return c.json({ rule: await autoOfferRule(c.env.DB), made: made?.n ?? 0 });
+  });
+  owner.put("/auto-offer", async (c) => {
+    const p = await parseBody(
+      c,
+      z.object({
+        enabled: z.boolean(),
+        max_left: z.number().int().min(0).max(100_000),
+        min_days: z.number().int().min(1).max(365),
+        pct: z.number().int().min(1).max(90),
+        scope: z.enum(["topups", "both"]),
+        hours: z.number().int().min(1).max(720),
+        title: z.string().trim().min(2).max(60),
+        body: z.string().trim().max(200),
+        theme: z.string().refine((v) => v in OFFER_THEMES, "تصميم غير معروف"),
+      }),
+    );
+    if (!p.ok) return p.res;
+    await setSetting(c.env.DB, OWNER_TENANT, "auto_low_messages_offer", p.data);
+    await audit(c.env.DB, T(c), c.get("session").username, "offer.auto_rule", undefined, p.data);
+    return c.json({ ok: true });
+  });
   owner.get("/offer-templates", async (c) => c.json({ templates: await getSetting<OfferTemplate[]>(c.env.DB, OWNER_TENANT, "offer_templates", DEFAULT_OFFER_TEMPLATES), defaults: DEFAULT_OFFER_TEMPLATES }));
   owner.put("/offer-templates", async (c) => {
     const p = await parseBody(
@@ -2094,7 +2120,7 @@ export function createApp() {
     const now = Date.now();
     const r = await run(
       c.env.DB,
-      "INSERT INTO offers (title, body, cta, link, theme, icon, starts_at, ends_at, audience, tenant_ids, active, plan_ids, discount_pct, discount_plans, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO offers (title, body, cta, link, theme, icon, starts_at, ends_at, audience, tenant_ids, active, plan_ids, discount_pct, discount_plans, discount_scope, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       ...offerValues(p.data), now, now,
     );
     await audit(c.env.DB, T(c), c.get("session").username, "offer.created", String(r.meta.last_row_id), { title: p.data.title, audience: p.data.audience });
@@ -2105,7 +2131,7 @@ export function createApp() {
     if (!p.ok) return p.res;
     const r = await run(
       c.env.DB,
-      "UPDATE offers SET title = ?, body = ?, cta = ?, link = ?, theme = ?, icon = ?, starts_at = ?, ends_at = ?, audience = ?, tenant_ids = ?, active = ?, plan_ids = ?, discount_pct = ?, discount_plans = ?, updated_at = ? WHERE id = ?",
+      "UPDATE offers SET title = ?, body = ?, cta = ?, link = ?, theme = ?, icon = ?, starts_at = ?, ends_at = ?, audience = ?, tenant_ids = ?, active = ?, plan_ids = ?, discount_pct = ?, discount_plans = ?, discount_scope = ?, updated_at = ? WHERE id = ?",
       ...offerValues(p.data), Date.now(), idParam(c),
     );
     if (!r.meta.changes) return apiError(c, 404, "not_found", "العرض غير موجود");

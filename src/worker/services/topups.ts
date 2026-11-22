@@ -5,6 +5,7 @@ import { topupSettingsOf, type TopupSettings } from "../../shared/promos";
 import { notify } from "./notify";
 import { getEntitlement, monthlyMessages, usageCycle } from "./plans";
 import { cardEnabled, createInvoice, isTestKey, PayError } from "./moyasar";
+import { discounted, topupDiscount } from "./offers";
 
 /**
  * Message top-ups: when a customer's cycle messages run out (or nearly), they buy a pack the owner sells. The pack
@@ -12,7 +13,7 @@ import { cardEnabled, createInvoice, isTestKey, PayError } from "./moyasar";
  * renews and is used after the plan's own messages. Paid by card through Moyasar like plans.
  */
 
-export type TopupPack = { id: number; messages: number; price: number; badge: string | null; plan_ids: string[] | null; active: boolean; sort: number };
+export type TopupPack = { id: number; messages: number; price: number; badge: string | null; plan_ids: string[] | null; active: boolean; sort: number; price_before?: number };
 type PackRow = { id: number; messages: number; price_halalas: number; badge: string | null; plan_ids: string | null; active: number; sort: number };
 
 const toPack = (r: PackRow): TopupPack => ({ id: r.id, messages: r.messages, price: r.price_halalas / 100, badge: r.badge, plan_ids: r.plan_ids ? (JSON.parse(r.plan_ids) as string[]) : null, active: !!r.active, sort: r.sort });
@@ -39,7 +40,12 @@ export async function topupState(env: Env, tenantId: number, now = Date.now()) {
   const limit = ent.limits.monthly_messages;
   const extra = ent.extra_messages ?? 0;
   const bought = await first<{ n: number }>(env.DB, "SELECT COUNT(*) AS n FROM message_credits WHERE tenant_id = ? AND cycle_key = ? AND source = 'card'", tenantId, cy.key);
-  const packs = ent.active && !ent.owner && limit !== null ? await packsFor(env.DB, ent.plan?.id ?? null) : [];
+  const base = ent.active && !ent.owner && limit !== null ? await packsFor(env.DB, ent.plan?.id ?? null) : [];
+  // A running offer for this customer with a top-up discount lowers every pack's price (shown struck through).
+  const discount = base.length ? await topupDiscount(env.DB, tenantId, now) : null;
+  const packs = discount
+    ? base.map((p) => ({ ...p, price_before: p.price, price: discounted(Math.round(p.price * 100), discount.pct) / 100 }))
+    : base;
   const capped = settings.max_per_cycle > 0 && (bought?.n ?? 0) >= settings.max_per_cycle;
   const out = limit !== null && used >= limit;
   // Share of the cycle's messages gone (taken-off ones count), as the bars show it.
@@ -60,6 +66,7 @@ export async function topupState(env: Env, tenantId: number, now = Date.now()) {
     show: packs.length > 0 && limit !== null && (out || gone >= settings.show_at_pct),
     can_buy: packs.length > 0 && cardEnabled(env) && !capped,
     capped,
+    discount,
     settings,
   };
 }
@@ -72,10 +79,15 @@ export async function startTopup(env: Env, tenantId: number, packId: number, act
   if (!pack) throw new PayError("not_found", "هذي الحزمة غير متاحة لباقتك", 404);
   if (st.capped) throw new PayError("capped", `وصلت الحد (${st.settings.max_per_cycle}) لشحن الرسائل في هذي الدورة — رقّ باقتك أو انتظر تجدد العدّاد`, 409);
   const ent = await getEntitlement(env.DB, tenantId, now);
-  const amount = Math.round(pack.price * 100);
+  const amount = Math.round(pack.price * 100); // already discounted by topupState when an offer runs
+  const off = st.discount;
   const r = await createInvoice(
     env,
-    { tenantId, planId: ent.plan!.id, days: 0, amount, description: `شيّك — ${pack.messages.toLocaleString("en-US")} رسالة إضافية`, actor, siteOrigin, topup: { packId: pack.id, messages: pack.messages } },
+    {
+      tenantId, planId: ent.plan!.id, days: 0, amount,
+      description: `شيّك — ${pack.messages.toLocaleString("en-US")} رسالة إضافية${off ? ` — عرض ${off.pct}%` : ""}`,
+      actor, siteOrigin, topup: { packId: pack.id, messages: pack.messages }, offerId: off?.offer_id,
+    },
     now,
   );
   return { ...r, messages: pack.messages, amount: pack.price };

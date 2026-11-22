@@ -344,4 +344,62 @@ describe("offers", () => {
     const titles = (await DB.prepare("SELECT title FROM app_notifications WHERE tenant_id = ? ORDER BY id").bind(tid).all<any>()).results.map((r: any) => r.title.match(/\d+%/)?.[0]);
     expect(titles).toEqual(["70%", "90%"]);
   });
+
+  it("a top-up discount: only the targeted customer pays less for packs, and a top-ups-only offer leaves plan prices alone", async () => {
+    stubMoyasar();
+    await DB.prepare("UPDATE plans SET card_price_halalas = 9900, price_period = 'month' WHERE id = 'pro'").run();
+    const a = await register("shop_a");
+    const b = await register("shop_b");
+    const pack = (await call("/api/owner/topups/packs", OWNER, "POST", { messages: 5000, price: 40 })).body.id;
+    const id = (await call("/api/owner/offers", OWNER, "POST", offer({ audience: "tenants", tenant_ids: [a.tid], discount_pct: 25, discount_scope: "topups" }))).body.id;
+    expect((await call("/api/topups", a.h)).body.packs[0]).toMatchObject({ price: 30, price_before: 40 });
+    expect((await call("/api/topups", a.h)).body.discount).toMatchObject({ pct: 25, offer_id: id });
+    expect((await call("/api/topups", b.h)).body.packs[0].price_before).toBeUndefined(); // isolation
+    expect((await call("/api/topups", b.h)).body.discount).toBeNull();
+    expect((await call("/api/subscription", a.h)).body.plans.find((p: any) => p.id === "pro").offer_pct).toBeUndefined(); // plans untouched
+    const r = await call("/api/topups/pay", a.h, "POST", { pack_id: pack });
+    expect(r.body.amount).toBe(30);
+    expect(reqs.at(-1)!.body.amount).toBe(3000);
+    expect((await DB.prepare("SELECT offer_id FROM card_payments ORDER BY id DESC LIMIT 1").first<any>()).offer_id).toBe(id);
+    // "both" covers plans too; the default (plans) does not touch packs
+    await call(`/api/owner/offers/${id}`, OWNER, "PUT", offer({ audience: "tenants", tenant_ids: [a.tid], discount_pct: 25, discount_scope: "both" }));
+    expect((await call("/api/subscription", a.h)).body.plans.find((p: any) => p.id === "pro").offer_pct).toBe(25);
+    await call(`/api/owner/offers/${id}`, OWNER, "PUT", offer({ audience: "tenants", tenant_ids: [a.tid], discount_pct: 25 }));
+    expect((await call("/api/topups", a.h)).body.discount).toBeNull();
+  });
+
+  it("the automatic offer: few messages + many days left → one private discount per cycle, by the owner's thresholds", async () => {
+    const a = await register("shop_a"); // basic: 1,000 messages, 30 days
+    const b = await register("shop_b");
+    await call("/api/owner/topups/packs", OWNER, "POST", { messages: 5000, price: 40 });
+    const rule = (await call("/api/owner/auto-offer", OWNER)).body.rule;
+    expect(rule.enabled).toBe(false);
+    expect((await call("/api/owner/auto-offer", a.h, "PUT", rule)).status).toBe(403); // customers cannot
+    const at = Math.floor(Date.now() / 600_000) * 600_000 - 7 * 60_000; // a cron minute already passed, so the offer is running now
+    await setUsage(a.tid, 960); // 40 left
+    await setUsage(b.tid, 900); // 100 left
+    await runPlanAlerts(TEST_ENV, at);
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM offers").first<any>()).n).toBe(0); // off by default
+
+    expect((await call("/api/owner/auto-offer", OWNER, "PUT", { ...rule, enabled: true, max_left: 50, min_days: 10, pct: 20, scope: "topups", hours: 48 })).status).toBe(200);
+    await runPlanAlerts(TEST_ENV, at);
+    await runPlanAlerts(TEST_ENV, at + 600_000); // again later in the same cycle: no second offer
+    const rows = (await DB.prepare("SELECT tenant_ids, discount_pct, discount_scope, ends_at FROM offers").all<any>()).results;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ tenant_ids: JSON.stringify([a.tid]), discount_pct: 20, discount_scope: "topups" });
+    expect(rows[0].ends_at).toBe(at + 48 * 3_600_000);
+    expect((await call("/api/topups", a.h)).body.packs[0]).toMatchObject({ price: 32, price_before: 40 });
+    expect((await call("/api/topups", b.h)).body.discount).toBeNull();
+    expect((await call("/api/promos", b.h)).body.offers).toEqual([]);
+    const note = await DB.prepare("SELECT title, body FROM app_notifications WHERE tenant_id = ? AND title LIKE '%خصم%'").bind(a.tid).first<any>();
+    expect(note.title).toContain("20%");
+    expect(note.body).toContain("40");
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM app_notifications WHERE tenant_id = 1 AND title LIKE '%عرض تلقائي%'").first<any>()).n).toBe(1);
+
+    // too few days left: no offer
+    await DB.prepare("UPDATE tenants SET plan_expires_at = ? WHERE id = ?").bind(at + 5 * 86_400_000, b.tid).run();
+    await setUsage(b.tid, 990);
+    await runPlanAlerts(TEST_ENV, at + 1_200_000);
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM offers").first<any>()).n).toBe(1);
+  });
 });

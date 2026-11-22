@@ -65,6 +65,8 @@ export type Offer = {
   /** A real card discount (%) the customer gets while the offer runs, on these plans (null = every plan). */
   discount_pct?: number | null;
   discount_plans?: string[] | null;
+  /** What the discount covers: plans (purchase, renewal, upgrade), message top-ups, or both. */
+  discount_scope?: "plans" | "topups" | "both";
 };
 
 /** Ready offer contents the owner picks from (and edits, saved in the owner setting "offer_templates"). */
