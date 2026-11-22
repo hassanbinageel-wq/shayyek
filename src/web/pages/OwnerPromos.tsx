@@ -453,7 +453,7 @@ function OfferModal({ offer, onClose, onDone }: { offer: OfferForm; onClose: () 
               </>
             )}
           </div>
-          <Toggle checked={f.active} onChange={(v) => set({ active: v })} label="مفعّل" />
+          <Toggle checked={f.active} onChange={(v) => set({ active: v })} label="العرض شغّال" description={f.active ? "يظهر للعملاء المختارين في وقته، وخصمه يشتغل عند الدفع." : "موقوف: مخفي عن العملاء وخصمه ما يشتغل — بدون ما ينحذف، وتقدر ترجّعه متى ما تبغى."} />
         </div>
         <div className="md:sticky md:top-0 md:self-start">
           <span className="muted mb-2 block text-xs">معاينة حيّة:</span>
