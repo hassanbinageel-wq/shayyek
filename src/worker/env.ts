@@ -35,6 +35,8 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Resend webhook signing secret (whsec_…) for received email (support@ → tickets). */
   RESEND_WEBHOOK_SECRET?: string;
+  /** Resend key with full access, used only to read received emails (the sending key stays sending-only). */
+  RESEND_RECEIVING_KEY?: string;
   /** Sender of replies on email tickets (default «دعم شيّك <support@shayyek.sa>»). */
   SUPPORT_EMAIL_FROM?: string;
   EMAIL_FROM?: string;

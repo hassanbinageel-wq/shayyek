@@ -77,8 +77,9 @@ export async function handleInboundEmail(env: Env, event: any, now = Date.now())
   if (!/^[\w-]{6,100}$/.test(emailId)) return null;
   const fresh = await run(env.DB, "INSERT OR IGNORE INTO support_email_in (email_id, created_at) VALUES (?, ?)", emailId, now);
   if (!fresh.meta.changes) return null; // already handled
-  if (!env.RESEND_API_KEY) return null;
-  const r = await fetchImpl(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, { headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` } });
+  const readKey = env.RESEND_RECEIVING_KEY || env.RESEND_API_KEY;
+  if (!readKey) return null;
+  const r = await fetchImpl(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, { headers: { Authorization: `Bearer ${readKey}` } });
   if (!r.ok) {
     // Let Resend retry later.
     await run(env.DB, "DELETE FROM support_email_in WHERE email_id = ?", emailId);
