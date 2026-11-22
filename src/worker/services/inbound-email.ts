@@ -82,7 +82,7 @@ export async function handleInboundEmail(env: Env, event: any, now = Date.now())
   if (!r.ok) {
     // Let Resend retry later.
     await run(env.DB, "DELETE FROM support_email_in WHERE email_id = ?", emailId);
-    throw new Error(`resend receiving ${r.status}`);
+    throw new Error(`resend receiving ${r.status}: ${(await r.text().catch(() => "")).replace(/re_[A-Za-z0-9_]+/g, "re_***").slice(0, 80)}`);
   }
   const mail = (await r.json()) as any;
   const from = parseAddress(mail.from ?? event.data.from);

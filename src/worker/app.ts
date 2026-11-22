@@ -458,22 +458,24 @@ export function createApp() {
   });
   // Email to support@ (received by Resend): becomes a support ticket. Signed by Resend (Svix); replays are ignored.
   app.post("/webhooks/resend", async (c) => {
-    if (!c.env.RESEND_WEBHOOK_SECRET) return c.json({ ok: false }, 503);
+    // The reason is in the answer (Resend shows it on the webhook page); nothing secret is ever returned.
+    if (!c.env.RESEND_WEBHOOK_SECRET) return c.json({ ok: false, reason: "secret_not_set" }, 503);
     const raw = await c.req.text();
-    if (raw.length > 1_000_000) return c.json({ ok: false }, 413);
-    if (!(await verifySvix(c.env.RESEND_WEBHOOK_SECRET, c.req.header("svix-id") ?? null, c.req.header("svix-timestamp") ?? null, c.req.header("svix-signature") ?? null, raw))) return c.json({ ok: false }, 401);
+    if (raw.length > 1_000_000) return c.json({ ok: false, reason: "too_large" }, 413);
+    if (!(await verifySvix(c.env.RESEND_WEBHOOK_SECRET, c.req.header("svix-id") ?? null, c.req.header("svix-timestamp") ?? null, c.req.header("svix-signature") ?? null, raw))) return c.json({ ok: false, reason: "bad_signature" }, 401);
     let body: any;
     try {
       body = JSON.parse(raw);
     } catch {
-      return c.json({ ok: false }, 400);
+      return c.json({ ok: false, reason: "bad_json" }, 400);
     }
     try {
       const id = await handleInboundEmail(c.env, body);
       return c.json({ ok: true, ticket: id });
     } catch (e) {
-      console.error("inbound email", sanitize(String(e)));
-      return c.json({ ok: false }, 500); // Resend retries
+      const reason = sanitize(String((e as Error)?.message ?? e)).slice(0, 120);
+      console.error("inbound email", reason);
+      return c.json({ ok: false, reason }, 500); // Resend retries
     }
   });
   app.post("/webhooks/salla", async (c) => {
