@@ -30,13 +30,10 @@ export function PushPrompt() {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] p-3.5">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-700"><Icon name="bell" size={20} /></span>
-      <span className="min-w-0 flex-1 leading-tight">
-        <b className="block text-sm">خلّ الإشعارات توصلك حتى لو الموقع مسكّر</b>
-        <span className="muted text-xs">رسائل الإدارة، انفصال الحساب، قرب انتهاء الاشتراك، ونفاد المخزون — تقدر تطفّيها من الإعدادات.</span>
-      </span>
+      <b className="min-w-0 flex-1 text-sm leading-tight">السماح لشيّك بإرسال إشعارات؟</b>
       <span className="flex gap-2">
         <button className="btn btn-ghost min-h-10 text-xs" disabled={busy} onClick={close}>لاحقًا</button>
-        <button className="btn btn-primary min-h-10 text-xs" disabled={busy} onClick={enable}>فعّل</button>
+        <button className="btn btn-primary min-h-10 text-xs" disabled={busy} onClick={enable}>سماح</button>
       </span>
     </div>
   );
