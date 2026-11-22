@@ -8,6 +8,8 @@ import { first, OWNER_TENANT, run } from "../lib/db";
 import { fromB64, timingSafeEqual } from "../lib/crypto";
 import { ticketNo } from "../../shared/support";
 import { notify } from "./notify";
+import { attachKey, attachLimit, cleanFileName } from "./support";
+import { randomToken } from "../lib/crypto";
 
 type Fetch = typeof fetch;
 let fetchImpl: Fetch = (i, init) => fetch(i, init);
@@ -91,9 +93,8 @@ export async function handleInboundEmail(env: Env, event: any, now = Date.now())
   // Our own mailer never opens tickets (no loops with no-reply bounces).
   if (/@shayyek\.sa$/i.test(from.email) || /^(mailer-daemon|postmaster|no-?reply)@/i.test(from.email)) return null;
   const subject = String(mail.subject ?? event.data.subject ?? "").trim().slice(0, 200) || "(بدون عنوان)";
-  let body = emailText(mail.text, mail.html);
+  const body = emailText(mail.text, mail.html);
   const atts = Array.isArray(mail.attachments ?? event.data.attachments) ? (mail.attachments ?? event.data.attachments) : [];
-  if (atts.length) body += `\n\n📎 مرفقات (افتحها من لوحة Resend): ${atts.map((a: any) => String(a.filename ?? "ملف")).slice(0, 10).join("، ")}`;
   const messageId = String(mail.message_id ?? event.data.message_id ?? "").slice(0, 300) || null;
 
   // Same ticket: our tag in the subject, else the same sender's open email ticket with the same subject.
@@ -119,13 +120,52 @@ export async function handleInboundEmail(env: Env, event: any, now = Date.now())
     );
   }
   await run(env.DB, "INSERT INTO support_messages (thread_id, sender, body, created_at) VALUES (?, 'customer', ?, ?)", thread!.id, body, now);
+  if (atts.length) await saveAttachments(env, emailId, thread!, readKey, now).catch((e) => console.error("email attachments", String(e).slice(0, 200)));
   await run(env.DB, "UPDATE support_email_in SET thread_id = ? WHERE email_id = ?", thread!.id, emailId);
   await notify(env, OWNER_TENANT, "support", `📧 إيميل للدعم رقم ${ticketNo(thread!.id)}: ${subject}\nمن ${from.name ? `${from.name} ` : ""}<${from.email}>`);
   return thread!.id;
 }
 
+const MAX_FILES = 5;
+
+/**
+ * The email's files (image 5 MB, video 25 MB, PDF 10 MB, at most 5): each is kept in private storage as its own
+ * message on the ticket. Other files are listed by name, so nothing is silently lost.
+ */
+async function saveAttachments(env: Env, emailId: string, thread: { id: number; tenant_id: number }, key: string, now: number): Promise<void> {
+  const r = await fetchImpl(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments`, { headers: { Authorization: `Bearer ${key}` } });
+  if (!r.ok) throw new Error(`attachments ${r.status}`);
+  const j = (await r.json()) as any;
+  const list: any[] = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
+  const skipped: string[] = [];
+  let saved = 0;
+  for (const a of list) {
+    const name = cleanFileName(a.filename) ?? "ملف";
+    const mime = String(a.content_type ?? a.contentType ?? "").split(";")[0].trim().toLowerCase();
+    const limit = attachLimit(mime);
+    const url = String(a.download_url ?? "");
+    if (!limit || saved >= MAX_FILES || !env.MEDIA || !/^https:\/\//.test(url) || (Number(a.size) > limit)) {
+      skipped.push(name);
+      continue;
+    }
+    const f = await fetchImpl(url);
+    const buf = f.ok ? new Uint8Array(await f.arrayBuffer()) : null;
+    if (!buf || !buf.byteLength || buf.byteLength > limit) {
+      skipped.push(name);
+      continue;
+    }
+    const m = await first<{ id: number }>(env.DB, "INSERT INTO support_messages (thread_id, sender, body, created_at) VALUES (?, 'customer', ?, ?) RETURNING id", thread.id, `📎 ${name}`, now);
+    const k = attachKey(thread.tenant_id, thread.id, m!.id, randomToken(10), mime);
+    await env.MEDIA.put(k, buf, { httpMetadata: { contentType: mime } });
+    await run(env.DB, "UPDATE support_messages SET att_key = ?, att_mime = ?, att_size = ?, att_name = ? WHERE id = ?", k, mime, buf.byteLength, name, m!.id);
+    saved++;
+  }
+  if (skipped.length)
+    await run(env.DB, "INSERT INTO support_messages (thread_id, sender, body, created_at) VALUES (?, 'customer', ?, ?)", thread.id, `📎 مرفقات ما انحفظت (نوع أو حجم غير مدعوم — صورة 5 ميجا، فيديو 25 ميجا، PDF 10 ميجا): ${skipped.slice(0, 10).join("، ")}`, now);
+}
+
 /** Sends the team's reply on an email ticket, as a reply in the sender's thread. */
-export async function sendSupportReply(env: Env, t: { id: number; subject: string; email_from: string; email_last_message_id: string | null }, body: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendSupportReply(env: Env, t: { id: number; subject: string; email_from: string; email_last_message_id: string | null }, body: string, file?: { filename: string; content: string }): Promise<{ ok: boolean; error?: string }> {
   if (!env.RESEND_API_KEY) return { ok: false, error: "email_not_configured" };
   const from = env.SUPPORT_EMAIL_FROM || "دعم شيّك <support@shayyek.sa>";
   const headers: Record<string, string> = {};
@@ -144,6 +184,7 @@ export async function sendSupportReply(env: Env, t: { id: number; subject: strin
       text: body,
       html: `<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;font-size:15px;line-height:1.7;white-space:pre-wrap">${esc(body)}</div>`,
       headers,
+      ...(file ? { attachments: [file] } : {}),
     }),
   });
   if (!r.ok) return { ok: false, error: `resend ${r.status}` };

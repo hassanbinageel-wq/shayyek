@@ -4,7 +4,7 @@ import { askConfirm, askText } from "../components/Confirm";
 import { Icon } from "../components/Icon";
 import { Alert, Card, Field, Modal, PageHeader, Spinner, Toggle, fmtTime, toast, useAsync } from "../components/ui";
 import { normText } from "../lib/text";
-import { ATTACH_IMAGE, ATTACH_IMAGE_BYTES, ATTACH_VIDEO, ATTACH_VIDEO_BYTES, CATEGORIES, parseFaqText, PRIORITIES, STATES, ticketNo, type TicketCategory, type TicketPriority, type TicketState } from "../../shared/support";
+import { ATTACH_DOC, ATTACH_DOC_BYTES, ATTACH_IMAGE, ATTACH_IMAGE_BYTES, ATTACH_VIDEO, ATTACH_VIDEO_BYTES, CATEGORIES, parseFaqText, PRIORITIES, STATES, ticketNo, type TicketCategory, type TicketPriority, type TicketState } from "../../shared/support";
 
 /**
  * Support center. Customers: their tickets with the service owner (type, number, state, replies, one image or
@@ -154,23 +154,24 @@ export function SupportInbox({ mode }: { mode: "customer" | "owner" }) {
 function fileProblem(f: File): string | null {
   if (ATTACH_IMAGE.includes(f.type)) return f.size > ATTACH_IMAGE_BYTES ? "الصورة أكبر من 5 ميجا" : null;
   if (ATTACH_VIDEO.includes(f.type)) return f.size > ATTACH_VIDEO_BYTES ? "الفيديو أكبر من 25 ميجا" : null;
-  return "اختر صورة (JPG / PNG / WEBP) أو فيديو (MP4 / MOV)";
+  if (ATTACH_DOC.includes(f.type)) return f.size > ATTACH_DOC_BYTES ? "الملف أكبر من 10 ميجا" : null;
+  return "اختر صورة (JPG / PNG / WEBP) أو فيديو (MP4 / MOV) أو ملف PDF";
 }
 
 function FilePick({ file, onChange }: { file: File | null; onChange: (f: File | null) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <button type="button" className="btn btn-ghost min-h-9 text-xs" onClick={() => ref.current?.click()}><Icon name="image" size={15} />{file ? "تغيير المرفق" : "إرفاق صورة أو فيديو"}</button>
+      <button type="button" className="btn btn-ghost min-h-9 text-xs" onClick={() => ref.current?.click()}><Icon name="image" size={15} />{file ? "تغيير المرفق" : "إرفاق صورة أو فيديو أو PDF"}</button>
       {file ? (
         <span className="flex min-w-0 items-center gap-1.5"><span className="truncate" dir="ltr">{file.name}</span> <span className="muted">({(file.size / 1024 / 1024).toFixed(1)} ميجا)</span> <button type="button" className="text-red-600 underline" onClick={() => onChange(null)}>إزالة</button></span>
       ) : (
-        <span className="muted">اختياري — صورة حتى 5 ميجا أو فيديو حتى 25 ميجا</span>
+        <span className="muted">اختياري — صورة حتى 5 ميجا، فيديو حتى 25 ميجا، PDF حتى 10 ميجا</span>
       )}
       <input
         ref={ref}
         type="file"
-        accept={[...ATTACH_IMAGE, ...ATTACH_VIDEO].join(",")}
+        accept={[...ATTACH_IMAGE, ...ATTACH_VIDEO, ...ATTACH_DOC].join(",")}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
@@ -255,6 +256,12 @@ function Attachment({ m, mode }: { m: any; mode: "customer" | "owner" }) {
   if (!m.has_att) return null;
   if (err) return <div className="mt-1.5 text-[11px] opacity-75">📎 تعذّر تحميل المرفق</div>;
   if (!src) return <div className="mt-1.5 text-[11px] opacity-75">📎 جارٍ تحميل المرفق…</div>;
+  if (String(m.att_mime) === "application/pdf")
+    return (
+      <a href={src} download={m.att_name || "file.pdf"} target="_blank" rel="noopener" className="mt-2 flex w-fit items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--text)]">
+        📄 <span className="max-w-[14rem] truncate" dir="ltr">{m.att_name || "ملف PDF"}</span> <span className="muted font-normal">{m.att_size ? `${(m.att_size / 1024 / 1024).toFixed(1)} ميجا` : ""}</span>
+      </a>
+    );
   return String(m.att_mime).startsWith("video/") ? (
     <video src={src} controls playsInline className="mt-2 max-h-72 w-full rounded-xl bg-black" />
   ) : (
@@ -285,8 +292,14 @@ function Thread({ id, base, mode, onBack, onChange }: { id: number; base: string
     if (!body) return;
     setBusy(true);
     try {
-      const r = await api<{ message_id: number }>(`${base}/${id}/reply`, { body: mode === "owner" ? { body, state: replyState } : { body } });
-      if (file && mode === "customer") await attach(id, r.message_id, file, () => undefined).catch((e) => toast(`انرسل الرد لكن ما انرفع المرفق: ${e.message}`, "bad"));
+      const emailTicket = mode === "owner" && data?.thread?.channel === "email";
+      // An email ticket with a file: save the reply, attach the file, then email both together.
+      const r = await api<{ message_id: number }>(`${base}/${id}/reply`, { body: mode === "owner" ? { body, state: replyState, ...(emailTicket && file ? { defer_email: true } : {}) } : { body } });
+      if (file) {
+        const path = mode === "owner" ? `/api/owner/support/${id}/messages/${r.message_id}/attachment` : `/api/support/${id}/messages/${r.message_id}/attachment`;
+        await uploadFile(path, file).catch((e) => toast(`انحفظ الرد لكن ما انرفع المرفق: ${e.message}`, "bad"));
+        if (emailTicket) await api(`/api/owner/support/${id}/messages/${r.message_id}/email`, { body: {} }).catch((e) => toast(e.message, "bad"));
+      }
       setText("");
       setFile(null);
       await load();
@@ -359,6 +372,7 @@ function Thread({ id, base, mode, onBack, onChange }: { id: number; base: string
           <textarea className="input min-h-[44px] flex-1 resize-none" rows={2} maxLength={4000} placeholder="اكتب ردك…" value={text} onChange={(e) => setText(e.target.value)} />
           <button className="btn btn-primary" disabled={busy || (!text.trim() && !file)} onClick={send}>{busy ? "…" : "إرسال"}</button>
         </div>
+        {mode === "owner" && <FilePick file={file} onChange={setFile} />}
         {mode === "customer" ? (
           <FilePick file={file} onChange={setFile} />
         ) : (

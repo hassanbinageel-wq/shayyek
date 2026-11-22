@@ -1,7 +1,7 @@
 import type { Env } from "../env";
 import { all, first, getSetting, OWNER_TENANT, run } from "../lib/db";
 import { notify } from "./notify";
-import { ATTACH_IMAGE, ATTACH_IMAGE_BYTES, ATTACH_VIDEO, ATTACH_VIDEO_BYTES, STATES, ticketNo, type TicketState } from "../../shared/support";
+import { ATTACH_DOC, ATTACH_DOC_BYTES, ATTACH_IMAGE, ATTACH_IMAGE_BYTES, ATTACH_VIDEO, ATTACH_VIDEO_BYTES, STATES, ticketNo, type TicketState } from "../../shared/support";
 
 /**
  * Support center: tickets (type, state, priority, one optional file per message in R2), the FAQ with video
@@ -15,11 +15,16 @@ export const ATTACH = {
   video: ATTACH_VIDEO,
   imageBytes: ATTACH_IMAGE_BYTES,
   videoBytes: ATTACH_VIDEO_BYTES,
+  doc: ATTACH_DOC,
+  docBytes: ATTACH_DOC_BYTES,
   /** Files are removed this long after the ticket is resolved. */
   keepAfterCloseMs: 30 * 86_400_000,
 };
-export const attachLimit = (mime: string) => (ATTACH.image.includes(mime) ? ATTACH.imageBytes : ATTACH.video.includes(mime) ? ATTACH.videoBytes : 0);
-const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov" };
+export const attachLimit = (mime: string) => (ATTACH.image.includes(mime) ? ATTACH.imageBytes : ATTACH.video.includes(mime) ? ATTACH.videoBytes : ATTACH.doc.includes(mime) ? ATTACH.docBytes : 0);
+export const attachTooBig = (mime: string) => (ATTACH.image.includes(mime) ? "الصورة أكبر من 5 ميجا" : ATTACH.doc.includes(mime) ? "الملف أكبر من 10 ميجا" : "الفيديو أكبر من 25 ميجا");
+/** A safe file name for display and download (no path, no control characters). */
+export const cleanFileName = (n: unknown) => String(n ?? "").replace(/[\\/\u0000-\u001f"<>|:*?]+/g, "_").slice(-120) || null;
+const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov", "application/pdf": "pdf" };
 export const attachKey = (tenantId: number, ticketId: number, messageId: number, token: string, mime: string) => `sup-t${tenantId}-k${ticketId}-m${messageId}-${token}.${EXT[mime] ?? "bin"}`;
 
 /** Moves a ticket to a state; keeps the old open/closed column and the close time in step. */

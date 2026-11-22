@@ -81,6 +81,8 @@ export async function download(path: string, filename: string) {
 /** Uploads a file as the raw request body (PUT), with progress (0..1). Same auth rules as `api`. */
 export async function uploadFile<T = any>(path: string, file: Blob, onProgress?: (p: number) => void): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": file.type };
+  // The original name (kept on support attachments); encoded so any language travels safely in a header.
+  if (file instanceof File && file.name) headers["X-File-Name"] = encodeURIComponent(file.name.slice(-120));
   if (isNative) {
     const t = await deviceToken.get();
     if (t) headers["Authorization"] = `Bearer ${t}`;

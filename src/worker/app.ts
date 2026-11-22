@@ -99,7 +99,7 @@ import { listPaymentMethods } from "./services/payments";
 import { parseFaqText } from "../shared/support";
 import { emptyMenu, extrasProblem, findNode, keywordsProblem, menuParts, menuProblem, parseMenuRoot, type DmMenu, type MenuNode } from "../shared/menu";
 import { syncMenuProfile } from "./services/menuProfile";
-import { ATTACH, attachKey, attachLimit, CATEGORIES, DEFAULT_RESPONSE_TIME, cardFontKey, deleteTenantCardFonts, deleteTenantSupportFiles, notifyState, ownMessage, setState, stateAfterCustomer, STATES, supportCenter, ticketNo, type Incident } from "./services/support";
+import { ATTACH, attachKey, attachLimit, attachTooBig, cleanFileName, CATEGORIES, DEFAULT_RESPONSE_TIME, cardFontKey, deleteTenantCardFonts, deleteTenantSupportFiles, notifyState, ownMessage, setState, stateAfterCustomer, STATES, supportCenter, ticketNo, type Incident } from "./services/support";
 import { CYCLE_MS, usageCycle, codeHash, deleteTenantData, drawsThisMonth, extendPlan, getEntitlement, listPlans, monthlyMessages, newCode, parseLimits, PERIOD_DAYS, redeemCode, RedeemError } from "./services/plans";
 import { cardEnabled, cardPriceHalalas, createInvoice, isTestKey, payablePlan, PayError, startCardPayment, syncInvoice } from "./services/moyasar";
 import { planChangeBlock, quoteUpgrade } from "./services/upgrades";
@@ -316,7 +316,7 @@ export function createApp() {
     const allowed = allowedAppOrigins(c.env);
     return cors({
       origin: (origin) => (allowed.includes(origin) ? origin : null),
-      allowHeaders: ["Authorization", "Content-Type"],
+      allowHeaders: ["Authorization", "Content-Type", "X-File-Name"],
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: false,
       maxAge: 600,
@@ -1500,9 +1500,22 @@ export function createApp() {
   const WHO = `(SELECT GROUP_CONCAT(u.username, '، ') FROM admin_users u WHERE u.tenant_id = t.tenant_id AND u.role = 'owner') AS tenant_usernames,
                 (SELECT a.username FROM instagram_accounts a WHERE a.tenant_id = t.tenant_id ORDER BY a.id DESC LIMIT 1) AS ig_username,
                 (SELECT st.name FROM stores st WHERE st.tenant_id = t.tenant_id AND st.status != 'disconnected' ORDER BY st.id DESC LIMIT 1) AS store_name`;
+  // The file's original name, sent by the app as an encoded header.
+  const fileNameHeader = (c: C) => {
+    try {
+      return cleanFileName(decodeURIComponent(c.req.header("X-File-Name") ?? ""));
+    } catch {
+      return null;
+    }
+  };
+  const bytesToB64 = (b: Uint8Array) => {
+    let s = "";
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
   // Email tickets from someone without an account show the sender (name and address) instead of a customer.
   const TICKET_NAME = `CASE WHEN t.channel = 'email' AND t.tenant_id = ${OWNER_TENANT} THEN '📧 ' || COALESCE(t.email_name || ' <' || t.email_from || '>', t.email_from) WHEN t.channel = 'email' THEN '📧 ' || n.name ELSE n.name END`;
-  const MSG_COLS = "id, sender, body, created_at, att_mime, att_size, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
+  const MSG_COLS = "id, sender, body, created_at, att_mime, att_size, att_name, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
   owner.get("/support", async (c) =>
     c.json(
       await all(
@@ -1678,6 +1691,48 @@ export function createApp() {
     if (!obj) return c.text("not found", 404);
     return new Response(obj.body, { headers: { "Content-Type": obj.httpMetadata?.contentType ?? "application/octet-stream", "Cache-Control": "private, max-age=600", "X-Content-Type-Options": "nosniff" } });
   });
+  // The file of a reply the team just wrote (same limits as customers: image 5 MB, video 25 MB, PDF 10 MB).
+  owner.put("/support/:id/messages/:mid/attachment", async (c) => {
+    if (!c.env.MEDIA) return apiError(c, 503, "no_storage", "مساحة حفظ الملفات غير مفعّلة على الخادم");
+    const id = idParam(c) ?? 0;
+    const m = await first<{ id: number; sender: string; att_key: string | null; created_at: number; tenant_id: number }>(
+      c.env.DB,
+      "SELECT m.id, m.sender, m.att_key, m.created_at, t.tenant_id FROM support_messages m JOIN support_threads t ON t.id = m.thread_id WHERE m.id = ? AND t.id = ?",
+      Number(c.req.param("mid")) || 0, id,
+    );
+    if (!m || m.sender !== "owner") return apiError(c, 404, "not_found", "الرسالة غير موجودة");
+    if (m.att_key) return apiError(c, 409, "exists", "الرسالة فيها ملف من قبل");
+    if (Date.now() - m.created_at > 3_600_000) return apiError(c, 409, "too_late", "أرفق الملف مع رد جديد");
+    const mime = (c.req.header("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
+    const limit = attachLimit(mime);
+    if (!limit) return apiError(c, 422, "type", "نوع الملف غير مدعوم: صورة (JPG / PNG / WEBP) أو فيديو (MP4 / MOV) أو PDF");
+    const size = Number(c.req.header("Content-Length") ?? 0);
+    if (!size || size > limit) return apiError(c, 422, "size", attachTooBig(mime));
+    if (!c.req.raw.body) return apiError(c, 400, "empty", "الملف فاضي");
+    const key = attachKey(m.tenant_id, id, m.id, randomToken(10), mime);
+    const obj = await c.env.MEDIA.put(key, c.req.raw.body, { httpMetadata: { contentType: mime } });
+    if (!obj || obj.size > limit) {
+      await c.env.MEDIA.delete(key).catch(() => undefined);
+      return apiError(c, 422, "size", "الملف أكبر من المسموح");
+    }
+    await run(c.env.DB, "UPDATE support_messages SET att_key = ?, att_mime = ?, att_size = ?, att_name = ? WHERE id = ?", key, mime, obj.size, fileNameHeader(c), m.id);
+    return c.json({ ok: true });
+  });
+  // Emails a reply that was saved with defer_email (after its file was attached): the file goes as an email attachment.
+  owner.post("/support/:id/messages/:mid/email", async (c) => {
+    const id = idParam(c) ?? 0;
+    const t = await first<{ id: number; subject: string; channel: string; email_from: string | null; email_last_message_id: string | null }>(c.env.DB, "SELECT id, subject, channel, email_from, email_last_message_id FROM support_threads WHERE id = ?", id);
+    const m = await first<{ id: number; sender: string; body: string; att_key: string | null; att_mime: string | null; att_name: string | null }>(c.env.DB, "SELECT id, sender, body, att_key, att_mime, att_name FROM support_messages WHERE id = ? AND thread_id = ?", Number(c.req.param("mid")) || 0, id);
+    if (!t || !m || m.sender !== "owner" || t.channel !== "email" || !t.email_from) return apiError(c, 404, "not_found", "الرسالة غير موجودة");
+    let file: { filename: string; content: string } | undefined;
+    if (m.att_key && c.env.MEDIA) {
+      const obj = await c.env.MEDIA.get(m.att_key);
+      if (obj) file = { filename: m.att_name || `attachment.${(m.att_mime ?? "").split("/")[1] || "bin"}`, content: bytesToB64(new Uint8Array(await obj.arrayBuffer())) };
+    }
+    const sent = await sendSupportReply(c.env, { id: t.id, subject: t.subject, email_from: t.email_from, email_last_message_id: t.email_last_message_id }, m.body, file);
+    if (!sent.ok) return apiError(c, 503, "email_failed", "انحفظ الرد، بس ما قدرنا نرسله بالإيميل الحين — اضغط «أعد الإرسال بالإيميل» بعد شوي");
+    return c.json({ ok: true });
+  });
   owner.get("/support/:id", async (c) => {
     const id = idParam(c);
     const t = await first(
@@ -1692,12 +1747,12 @@ export function createApp() {
   });
   owner.post("/support/:id/reply", async (c) => {
     const id = idParam(c);
-    const p = await parseBody(c, z.object({ body: z.string().trim().min(1).max(4000), state: z.enum(["in_progress", "waiting", "resolved"]).optional(), close: z.boolean().optional() }));
+    const p = await parseBody(c, z.object({ body: z.string().trim().min(1).max(4000), state: z.enum(["in_progress", "waiting", "resolved"]).optional(), close: z.boolean().optional(), defer_email: z.boolean().optional() }));
     if (!p.ok) return p.res;
     const t = await first<{ id: number; tenant_id: number; subject: string; channel: string; email_from: string | null; email_last_message_id: string | null }>(c.env.DB, "SELECT id, tenant_id, subject, channel, email_from, email_last_message_id FROM support_threads WHERE id = ?", id);
     if (!t) return apiError(c, 404, "not_found", "الطلب غير موجود");
     // An email ticket: the reply goes back by email first (nothing is saved if it could not be sent).
-    if (t.channel === "email" && t.email_from) {
+    if (t.channel === "email" && t.email_from && !p.data.defer_email) {
       const sent = await sendSupportReply(c.env, { id: t.id, subject: t.subject, email_from: t.email_from, email_last_message_id: t.email_last_message_id }, p.data.body);
       if (!sent.ok) return apiError(c, 503, "email_failed", "ما قدرنا نرسل الرد بالإيميل الحين — حاول بعد شوي");
     }
@@ -4241,7 +4296,7 @@ export function createApp() {
   });
 
   // ---- Support center (customer): tickets with the service owner, one optional file per message.
-  const SUP_MSG_COLS = "id, sender, body, created_at, att_mime, att_size, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
+  const SUP_MSG_COLS = "id, sender, body, created_at, att_mime, att_size, att_name, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
   api.get("/support", async (c) =>
     c.json(
       await all(
@@ -4311,9 +4366,9 @@ export function createApp() {
     if (Date.now() - m.created_at > 3_600_000) return apiError(c, 409, "too_late", "أرفق الملف مع رسالة جديدة");
     const mime = (c.req.header("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
     const limit = attachLimit(mime);
-    if (!limit) return apiError(c, 422, "type", "نوع الملف غير مدعوم: صورة (JPG / PNG / WEBP) أو فيديو (MP4 / MOV)");
+    if (!limit) return apiError(c, 422, "type", "نوع الملف غير مدعوم: صورة (JPG / PNG / WEBP) أو فيديو (MP4 / MOV) أو PDF");
     const size = Number(c.req.header("Content-Length") ?? 0);
-    if (!size || size > limit) return apiError(c, 422, "size", limit === ATTACH.imageBytes ? "الصورة أكبر من 5 ميجا" : "الفيديو أكبر من 25 ميجا");
+    if (!size || size > limit) return apiError(c, 422, "size", attachTooBig(mime));
     if (!c.req.raw.body) return apiError(c, 400, "empty", "الملف فاضي");
     if (!(await rateLimit(c.env.DB, `support_upload:${T(c)}`, 30, 86_400_000))) return apiError(c, 429, "rate_limited", "رفعت ملفات كثيرة اليوم");
     const key = attachKey(T(c), id, m.id, randomToken(10), mime);
@@ -4322,7 +4377,7 @@ export function createApp() {
       await c.env.MEDIA.delete(key).catch(() => undefined);
       return apiError(c, 422, "size", "الملف أكبر من المسموح");
     }
-    await run(c.env.DB, "UPDATE support_messages SET att_key = ?, att_mime = ?, att_size = ? WHERE id = ?", key, mime, obj.size, m.id);
+    await run(c.env.DB, "UPDATE support_messages SET att_key = ?, att_mime = ?, att_size = ?, att_name = ? WHERE id = ?", key, mime, obj.size, fileNameHeader(c), m.id);
     return c.json({ ok: true });
   });
 

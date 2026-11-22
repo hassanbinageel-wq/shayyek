@@ -12,6 +12,9 @@ export const ATTACH_IMAGE = ["image/jpeg", "image/png", "image/webp"];
 export const ATTACH_VIDEO = ["video/mp4", "video/quicktime"];
 export const ATTACH_IMAGE_BYTES = 5 * 1024 * 1024;
 export const ATTACH_VIDEO_BYTES = 25 * 1024 * 1024;
+/** Documents (PDF) up to 10 MB. */
+export const ATTACH_DOC = ["application/pdf"];
+export const ATTACH_DOC_BYTES = 10 * 1024 * 1024;
 
 export interface ParsedFaq {
   sections: Array<{ title: string; items: Array<{ question: string; answer: string; video_url?: string }> }>;
