@@ -295,7 +295,7 @@ export async function runPlanAlerts(env: Env, now = Date.now()): Promise<number>
     const msgLimit = ent.limits.monthly_messages;
     const usedMsgs = await monthlyMessages(env.DB, t.id, now);
     const left = msgLimit === null ? null : Math.max(0, msgLimit - usedMsgs);
-    const daysLeft = ent.expires_at ? Math.floor((ent.expires_at - now) / 86_400_000) : null;
+    const daysLeft = ent.expires_at ? Math.ceil((ent.expires_at - now) / 86_400_000) : null; // as the customer card shows it
     // Only customers who match the owner's thresholds cost any extra reads.
     if (autoRule.enabled && left !== null && daysLeft !== null && left <= autoRule.max_left && daysLeft >= autoRule.min_days) {
       const name = (await first<{ name: string }>(env.DB, "SELECT name FROM tenants WHERE id = ?", t.id))?.name ?? "";
