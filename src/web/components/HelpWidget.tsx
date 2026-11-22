@@ -146,7 +146,7 @@ export function HelpWidget({ center, isOwner }: { center: SupportCenter | null; 
           </div>
           <div className="flex gap-2 border-t border-[var(--border)] p-3">
             {isOwner ? (
-              <button type="button" className="btn btn-primary flex-1" onClick={() => go("/owner?tab=support")}>إدارة الدعم والأسئلة</button>
+              <button type="button" className="btn btn-primary flex-1" onClick={() => go("/owner-support")}>إدارة الدعم والأسئلة</button>
             ) : (
               <>
                 <button type="button" className="btn btn-primary flex-1" onClick={() => go("/support?new=1")}><Icon name="plus" size={15} />فتح طلب دعم</button>

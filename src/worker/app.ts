@@ -1514,7 +1514,7 @@ export function createApp() {
     return btoa(s);
   };
   // Email tickets from someone without an account show the sender (name and address) instead of a customer.
-  const TICKET_NAME = `CASE WHEN t.channel = 'email' AND t.tenant_id = ${OWNER_TENANT} THEN '📧 ' || COALESCE(t.email_name || ' <' || t.email_from || '>', t.email_from) WHEN t.channel = 'email' THEN '📧 ' || n.name ELSE n.name END`;
+  const TICKET_NAME = `CASE WHEN t.channel = 'email' AND t.tenant_id = ${OWNER_TENANT} THEN COALESCE(t.email_name, t.email_from) WHEN t.channel = 'email' THEN n.name ELSE n.name END`;
   const MSG_COLS = "id, sender, body, created_at, att_mime, att_size, att_name, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
   owner.get("/support", async (c) =>
     c.json(
@@ -4321,7 +4321,7 @@ export function createApp() {
     );
     const m = await first<{ id: number }>(c.env.DB, "INSERT INTO support_messages (thread_id, sender, body, created_at) VALUES (?, 'customer', ?, ?) RETURNING id", t!.id, p.data.body, now);
     const name = (await first<{ name: string }>(c.env.DB, "SELECT name FROM tenants WHERE id = ?", T(c)))?.name ?? "عميل";
-    await notify(c.env, OWNER_TENANT, "support", `🎧 طلب دعم جديد رقم ${ticketNo(t!.id)} (${CATEGORIES[p.data.category]}) من «${name}»: ${p.data.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/owner?tab=support&thread=${t!.id}` });
+    await notify(c.env, OWNER_TENANT, "support", `🎧 طلب دعم جديد رقم ${ticketNo(t!.id)} (${CATEGORIES[p.data.category]}) من «${name}»: ${p.data.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/owner-support?thread=${t!.id}` });
     return c.json({ ok: true, id: t!.id, number: ticketNo(t!.id), message_id: m!.id });
   });
   api.get("/support/attachment/:mid", async (c) => {
@@ -4353,7 +4353,7 @@ export function createApp() {
     await run(c.env.DB, "UPDATE support_threads SET last_from = 'customer', customer_read_at = ? WHERE id = ?", now, id);
     await setState(c.env.DB, t.id, stateAfterCustomer(t.state), now);
     const name = (await first<{ name: string }>(c.env.DB, "SELECT name FROM tenants WHERE id = ?", T(c)))?.name ?? "عميل";
-    await notify(c.env, OWNER_TENANT, "support", `🎧 رد من «${name}» على الطلب رقم ${ticketNo(t.id)}${t.state === "resolved" ? " (انفتح من جديد)" : ""}: ${t.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/owner?tab=support&thread=${t.id}` });
+    await notify(c.env, OWNER_TENANT, "support", `🎧 رد من «${name}» على الطلب رقم ${ticketNo(t.id)}${t.state === "resolved" ? " (انفتح من جديد)" : ""}: ${t.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/owner-support?thread=${t.id}` });
     return c.json({ ok: true, message_id: m!.id });
   });
   // The file of a message the customer just sent (body = the file): an image up to 5 MB or a video up to 25 MB.

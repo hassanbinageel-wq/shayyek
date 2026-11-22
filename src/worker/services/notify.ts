@@ -145,7 +145,7 @@ const IN_APP: Partial<Record<NotifyKind, string>> = {
   plan: "/subscription",
   service: "/",
   message: "/",
-  support: "/owner?tab=support",
+  support: "/owner-support",
   support_reply: "/support",
   referral: "/subscription",
   system: "/owner?tab=health",

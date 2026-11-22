@@ -1,5 +1,4 @@
 import { MESSAGE_LINKS } from "../../shared/plans";
-import { OwnerSupportTab } from "./Support";
 import { OffersTab, TopupsTab } from "./OwnerPromos";
 import { PaymentsReportCard } from "./OwnerReport";
 import { OUT_OF_MESSAGES_TEMPLATE, type MessageTemplate } from "../../shared/messageTemplates";
@@ -20,9 +19,9 @@ import { extraNote, messagesUsed, subscriptionLeft, usageBarStyle } from "../lib
 import { Alert, Card, Empty, Field, Modal, Spinner, Tip, Toggle, fmtDate, fmtTime, toast, useAsync } from "../components/ui";
 import { CURRENCIES, EVENT_LABELS, FEATURE_HINTS, FEATURE_LABELS, LIMIT_HINTS, LIMIT_ROW_LABELS, PRICE_PERIODS, formatPrice, orderFeatures } from "../../shared/plans";
 
-const TABS = [["customers", "العملاء"], ["health", "صحة العملاء"], ["support", "الدعم"], ["plans", "الباقات"], ["codes", "أكواد التفعيل"], ["coupons", "الكوبونات والإحالة"], ["topups", "حزم الشحن"], ["offers", "العروض"], ["payments", "الدفع"], ["branding", "صفحة الدخول"]] as const;
+const TABS = [["customers", "العملاء"], ["health", "صحة العملاء"], ["plans", "الباقات"], ["codes", "أكواد التفعيل"], ["coupons", "الكوبونات والإحالة"], ["topups", "حزم الشحن"], ["offers", "العروض"], ["payments", "الدفع"], ["branding", "صفحة الدخول"]] as const;
 /** Which staff section opens each tab (the account holder sees all). */
-const TAB_PERM: Record<(typeof TABS)[number][0], string> = { customers: "owner_customers", health: "owner_customers", support: "owner_support", plans: "owner_plans", codes: "owner_plans", coupons: "owner_plans", topups: "owner_plans", offers: "owner_plans", payments: "owner_payments", branding: "owner_branding" };
+const TAB_PERM: Record<(typeof TABS)[number][0], string> = { customers: "owner_customers", health: "owner_customers", plans: "owner_plans", codes: "owner_plans", coupons: "owner_plans", topups: "owner_plans", offers: "owner_plans", payments: "owner_payments", branding: "owner_branding" };
 
 /** A random 16-character password (the owner gives it to the customer, who can change it later). */
 function generatePassword(): string {
@@ -717,7 +716,17 @@ function PlanEditor({ plan, order, onSaved }: { plan: any; order?: string[]; onS
 }
 
 export function OwnerPage() {
-  const [tab, setTab] = useState<"customers" | "health" | "support" | "plans" | "codes" | "coupons" | "topups" | "offers" | "payments" | "branding">(() => (new URLSearchParams(location.hash.split("?")[1] ?? "").get("tab") as any) || (location.hash.startsWith("#/support") ? "support" : "customers"));
+  // Support moved to its own page (#/owner-support); old links (notifications) still land there.
+  useEffect(() => {
+    const go = () => {
+      const q = new URLSearchParams(location.hash.split("?")[1] ?? "");
+      if (q.get("tab") === "support") location.replace(`#/owner-support${q.get("thread") ? `?thread=${q.get("thread")}` : ""}`);
+    };
+    go();
+    window.addEventListener("hashchange", go);
+    return () => window.removeEventListener("hashchange", go);
+  }, []);
+  const [tab, setTab] = useState<"customers" | "health" | "plans" | "codes" | "coupons" | "topups" | "offers" | "payments" | "branding">(() => (new URLSearchParams(location.hash.split("?")[1] ?? "").get("tab") as any) || "customers");
   // A link to a tab (e.g. a support notification → #/owner?tab=support) while the page is already open.
   useEffect(() => {
     const on = () => {
@@ -746,7 +755,7 @@ export function OwnerPage() {
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
-      {tab === "customers" ? <><BroadcastCard /><SentMessages /><CustomersTab /></> : tab === "health" ? <HealthTab /> : tab === "support" ? <OwnerSupportTab /> : tab === "coupons" ? <CouponsTab /> : tab === "plans" ? <PlansTab /> : tab === "codes" ? <CodesTab /> : tab === "topups" ? <TopupsTab /> : tab === "offers" ? <OffersTab /> : tab === "payments" ? <PaymentsTab /> : <BrandingTab />}
+      {tab === "customers" ? <><BroadcastCard /><SentMessages /><CustomersTab /></> : tab === "health" ? <HealthTab /> : tab === "coupons" ? <CouponsTab /> : tab === "plans" ? <PlansTab /> : tab === "codes" ? <CodesTab /> : tab === "topups" ? <TopupsTab /> : tab === "offers" ? <OffersTab /> : tab === "payments" ? <PaymentsTab /> : <BrandingTab />}
     </div>
   );
 }

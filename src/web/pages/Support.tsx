@@ -263,9 +263,9 @@ function Attachment({ m, mode }: { m: any; mode: "customer" | "owner" }) {
       </a>
     );
   return String(m.att_mime).startsWith("video/") ? (
-    <video src={src} controls playsInline className="mt-2 max-h-72 w-full rounded-xl bg-black" />
+    <video src={src} controls playsInline className="mt-2 block max-h-56 w-full max-w-sm rounded-xl bg-black" />
   ) : (
-    <a href={src} target="_blank" rel="noopener"><img src={src} alt="مرفق" className="mt-2 max-h-72 rounded-xl object-contain" /></a>
+    <a href={src} target="_blank" rel="noopener" className="block"><img src={src} alt="مرفق" className="mt-2 block max-h-56 w-auto max-w-full rounded-xl object-contain" /></a>
   );
 }
 
@@ -346,10 +346,10 @@ function Thread({ id, base, mode, onBack, onChange }: { id: number; base: string
           </div>
         )}
       </div>
-      <div ref={box} className="-mx-3 h-[50vh] min-h-[240px] space-y-2 overflow-y-auto bg-[var(--surface-2)] px-3 py-3 sm:-mx-4 sm:px-4">
+      <div ref={box} className="-mx-3 h-[min(60vh,calc(100dvh-360px))] min-h-[260px] space-y-2 overflow-y-auto overscroll-contain bg-[var(--surface-2)] px-3 py-3 sm:-mx-4 sm:px-4">
         {data.messages.map((m: any) => (
           <div key={m.id} className={`flex ${m.sender === mine ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ${m.sender === mine ? "bg-gradient-to-br from-violet-600 to-indigo-500 text-white" : "border border-[var(--border)] bg-[var(--surface)]"}`}>
+            <div className={`min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ${m.sender === mine ? "bg-gradient-to-br from-violet-600 to-indigo-500 text-white" : "border border-[var(--border)] bg-[var(--surface)]"}`}>
               <div className="mb-0.5 text-[10.5px] opacity-75">{m.sender === "owner" ? "🎧 الدعم" : mode === "owner" ? t.tenant_name : "أنت"}</div>
               <div className="whitespace-pre-wrap break-words">{m.body}</div>
               <Attachment m={m} mode={mode} />
@@ -386,6 +386,19 @@ function Thread({ id, base, mode, onBack, onChange }: { id: number; base: string
           </label>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The owner's support page (its own item in the menu, under «العملاء»). */
+export function OwnerSupportPage() {
+  return (
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-extrabold leading-tight sm:text-[26px]">الدعم</h1>
+        <p className="muted mt-1 text-sm">طلبات العملاء من الموقع والإيميل، والأسئلة الشائعة، والردود الجاهزة.</p>
+      </header>
+      <OwnerSupportTab />
     </div>
   );
 }
@@ -682,9 +695,18 @@ function SupportSettings() {
 
 /** Who wrote: the customer's name, login username(s), Instagram account and store. */
 function Who({ t }: { t: any }) {
+  // An email from someone without an account: their name and address only.
+  if (t.channel === "email" && t.tenant_id === 1)
+    return (
+      <span className="text-xs">
+        <b className="text-[var(--primary)]">{t.tenant_name}</b>
+        {t.email_from && t.email_from !== t.tenant_name && <span className="muted"> · <span dir="ltr">{t.email_from}</span></span>}
+      </span>
+    );
   return (
     <span className="text-xs">
       <b className="text-[var(--primary)]">{t.tenant_name}</b>
+      {t.channel === "email" && t.email_from && <span className="muted"> · <span dir="ltr">{t.email_from}</span></span>}
       <span className="muted">
         {t.tenant_usernames ? ` · اسم الحساب (الدخول): ${t.tenant_usernames}` : ""}
         {t.ig_username ? ` · @${t.ig_username}` : ""}

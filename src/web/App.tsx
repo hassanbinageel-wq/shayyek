@@ -52,6 +52,7 @@ const UsagePage = lazyPage(() => import("./pages/Usage"), "UsagePage");
 const StorePage = lazyPage(() => import("./pages/Store"), "StorePage");
 const ReportPage = lazyPage(() => import("./pages/Report"), "ReportPage");
 const SupportPage = lazyPage(() => import("./pages/Support"), "SupportPage");
+const OwnerSupportPage = lazyPage(() => import("./pages/Support"), "OwnerSupportPage");
 const SubscriptionPage = lazyPage(() => import("./pages/Subscription"), "SubscriptionPage");
 const SettingsPage = lazyPage(() => import("./pages/Settings"), "SettingsPage");
 const DownloadPage = lazyPage(() => import("./pages/Download"), "DownloadPage");
@@ -123,7 +124,7 @@ const SUBSCRIPTION_ITEM = { to: "/subscription", label: "اشتراكي", icon: 
 /** Customers only: support conversations with the service owner. */
 const SUPPORT_ITEM = { to: "/support", label: "مركز الدعم", icon: "msg" };
 /** Owner-only section (customers management). */
-const OWNER_GROUP = { title: "الإدارة", items: [{ to: "/owner", label: "العملاء", icon: "users" }, { to: "/usage", label: "الاستهلاك", icon: "gauge" }] };
+const OWNER_GROUP = { title: "الإدارة", items: [{ to: "/owner", label: "العملاء", icon: "users" }, { to: "/owner-support", label: "الدعم", icon: "msg" }, { to: "/usage", label: "الاستهلاك", icon: "gauge" }] };
 const NAV = [...NAV_GROUPS, OWNER_GROUP].flatMap((g) => g.items).concat(SUBSCRIPTION_ITEM, SUPPORT_ITEM);
 const MOBILE_TABS = ["/", "/campaigns", "/inbox"];
 
@@ -336,6 +337,7 @@ export function App() {
       case "/settings": page = <SettingsPage theme={theme} setTheme={setTheme} onLogout={logout} username={username} />; break;
       case "/download": page = PLAY_BUILD ? <DashboardPage /> : <DownloadPage />; break;
       case "/owner": page = isOwner ? <OwnerPage /> : <DashboardPage />; break;
+      case "/owner-support": page = isOwner ? <OwnerSupportPage /> : <DashboardPage />; break;
       case "/usage": page = isOwner ? <UsagePage /> : <DashboardPage />; break;
       case "/store": page = <StorePage />; break;
       case "/report": page = <ReportPage />; break;
@@ -358,7 +360,8 @@ export function App() {
         );
     }
 
-  const isActive = (to: string) => (to === "/" ? route === "/" : route.startsWith(to));
+  // A page and its sub-pages (/campaigns/12), but not a different page that only starts the same (/owner-support).
+  const isActive = (to: string) => (to === "/" ? route === "/" : route === to || route.startsWith(`${to}/`));
 
   const current = NAV.find((n) => isActive(n.to));
   // A distinct tab title per screen (browser tabs, history, screen-reader page announcements).
@@ -535,7 +538,7 @@ export function App() {
           <div className="card safe-bottom absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-b-none p-4" onClick={(e) => e.stopPropagation()} role="menu">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[var(--border)]" />
             <div className="grid grid-cols-3 gap-2">
-              {NAV.filter((n) => !MOBILE_TABS.includes(n.to) && can(n.to) && (isOwner ? n.to !== "/subscription" && n.to !== "/support" : n.to !== "/owner" && n.to !== "/usage")).map((n) => (
+              {NAV.filter((n) => !MOBILE_TABS.includes(n.to) && can(n.to) && (isOwner ? n.to !== "/subscription" && n.to !== "/support" : n.to !== "/owner" && n.to !== "/owner-support" && n.to !== "/usage")).map((n) => (
                 <NavLink key={n.to} to={n.to} className={`flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)] px-2 py-3.5 text-center text-xs font-bold ${isActive(n.to) ? "border-violet-400 bg-violet-500/10 text-violet-700 dark:text-violet-300" : ""}`}>
                   <Icon name={n.icon} size={22} />
                   {n.label}

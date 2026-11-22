@@ -38,7 +38,8 @@ export const PAGE_PERMS: Record<string, StaffPerm[] | "all"> = {
   "/simulator": ["campaigns"],
   "/logs": ["logs"],
   "/report": ["analytics"],
-  "/owner": ["owner_customers", "owner_support", "owner_plans", "owner_payments", "owner_branding"],
+  "/owner": ["owner_customers", "owner_plans", "owner_payments", "owner_branding"],
+  "/owner-support": ["owner_support"],
 };
 
 export function canOpenPage(path: string, role: string | undefined, perms: string[]): boolean {
