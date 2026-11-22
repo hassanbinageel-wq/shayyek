@@ -150,12 +150,10 @@ export function PlanCards({ catalog, cur, currentPlanId, startPlanId, onChoose, 
               <div className="mt-3 border-y border-[var(--border)] py-3 @2xl:min-h-[7.25rem]">
                 {price !== null ? (
                   <div className="flex flex-wrap items-baseline gap-1.5">
+                    {old !== null && old > price && <s className="muted text-lg font-bold decoration-rose-500 decoration-2">{formatAmount(old, cur)}</s>}
                     <span className={`font-display font-extrabold text-violet-600 dark:text-violet-300 text-3xl`}>{formatAmount(price, cur)}</span>
                     <span className="muted text-sm">/ {PRICE_PERIODS[p.price_period] ?? PRICE_PERIODS.month}</span>
                     {catalog.price_note && <span className="muted w-full text-[11px]">({catalog.price_note})</span>}
-                    {old !== null && price !== null && old > price && (
-                      <span className="w-full text-xs"><s className="muted text-sm">{formatAmount(old, cur)}</s></span>
-                    )}
                   </div>
                 ) : (
                   <span className="font-display text-2xl font-extrabold text-violet-600 dark:text-violet-300">{p.price_label || "تواصل معنا"}</span>

@@ -397,6 +397,7 @@ async function deliverOwnerMessage(env: Env, id: number, prefix: string | null, 
   );
   if (!recipients.length) return 0;
   const stmts: D1PreparedStatement[] = [];
+  const pushes: Array<{ tenantId: number; title: string; body: string | null }> = [];
   for (const r of recipients) {
     const v = { name: r.name, plan: r.plan_name, expiresAt: r.plan_expires_at };
     const title = `${prefix ?? ""}${kind === "message" ? "✉️ " : ""}${fillMessage(m.title, v, now)}`.slice(0, 220);
@@ -407,6 +408,7 @@ async function deliverOwnerMessage(env: Env, id: number, prefix: string | null, 
         .prepare("INSERT INTO owner_message_receipts (owner_message_id, tenant_id, delivered_at, last_delivered_at) VALUES (?, ?, ?, ?) ON CONFLICT(owner_message_id, tenant_id) DO UPDATE SET last_delivered_at = excluded.last_delivered_at, deleted_at = NULL")
         .bind(m.id, r.id, now, now),
     );
+    pushes.push({ tenantId: r.id, title, body });
     // A private message also goes to the customer's Telegram when they set it up.
     if (m.tenant_id !== null) {
       const s = await getNotifySettings(env.DB, r.id);
@@ -414,6 +416,10 @@ async function deliverOwnerMessage(env: Env, id: number, prefix: string | null, 
     }
   }
   for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+  // Also to the customers' phones and computers (push), even with the app closed — like every other notification.
+  for (let i = 0; i < pushes.length; i += 10) {
+    await Promise.allSettled(pushes.slice(i, i + 10).map((p) => pushToTenant(env, p.tenantId, { title: p.title, body: p.body, link: m.link ?? "/" })));
+  }
   return recipients.length;
 }
 

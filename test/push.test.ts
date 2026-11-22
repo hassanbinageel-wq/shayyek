@@ -2,7 +2,7 @@ import { exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { b64url, fromB64 } from "../src/worker/lib/crypto";
 import { allowedEndpoint, encryptWebPush, pushToTenant, saveSubscription, setPushFetch } from "../src/worker/services/push";
-import { notify } from "../src/worker/services/notify";
+import { notify, sendOwnerMessage } from "../src/worker/services/notify";
 import { DB, resetDb, TEST_ENV } from "./helpers";
 
 const BASE = "https://hsn.example.workers.dev";
@@ -98,6 +98,18 @@ describe("push notifications", () => {
     expect((req.headers as any).Authorization).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/);
     const msg = JSON.parse(await ba.decrypt(new Uint8Array(req.body as ArrayBuffer)));
     expect(msg).toEqual({ title: "⏰ اشتراكك ينتهي بعد 3 أيام", body: "جدّد عشان ما تتوقف الردود.", link: "/subscription" });
+  });
+
+  it("a private message from the owner reaches only that customer's devices, even with the app closed", async () => {
+    const a = await tenantWithUser("store_a");
+    const b = await tenantWithUser("store_b");
+    const ba = await browser();
+    await saveSubscription(TEST_ENV, { tenantId: a.tenantId, userId: a.userId, kind: "web", endpoint: "https://fcm.googleapis.com/fcm/send/device-a", ...ba });
+    await saveSubscription(TEST_ENV, { tenantId: b.tenantId, userId: b.userId, kind: "web", endpoint: "https://fcm.googleapis.com/fcm/send/device-b", ...(await browser()) });
+    await sendOwnerMessage(TEST_ENV, { tenantId: a.tenantId, title: "عرض خاص لك يا {الاسم}", body: "خصم 20%", link: "/subscription", days: 7 });
+    expect(sent.map((s) => s.url)).toEqual(["https://fcm.googleapis.com/fcm/send/device-a"]);
+    const msg = JSON.parse(await ba.decrypt(new Uint8Array(sent[0].init.body as ArrayBuffer)));
+    expect(msg).toEqual({ title: "✉️ عرض خاص لك يا store_a", body: "خصم 20%", link: "/subscription" });
   });
 
   it("frequent kinds (new follower) do not push", async () => {

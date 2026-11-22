@@ -83,8 +83,10 @@ export function TopupPicker({ onCancel }: { onCancel?: () => void }) {
                   <span className="muted text-xs">رسالة</span>
                 </span>
                 <span>
-                  {p.price_before && <s className="muted block text-xs">{n(p.price_before)} ر.س</s>}
-                  <b className="font-display block text-xl font-extrabold text-violet-700 sm:mt-1 sm:text-2xl dark:text-violet-300">{n(p.price)} ر.س</b>
+                  <span className="flex items-baseline justify-end gap-1.5 sm:mt-1 sm:justify-center">
+                    {p.price_before && <s className="muted text-sm font-bold decoration-rose-500 decoration-2">{n(p.price_before)}</s>}
+                    <b className="font-display text-xl font-extrabold text-violet-700 sm:text-2xl dark:text-violet-300">{n(p.price)} ر.س</b>
+                  </span>
                   <span className="muted text-xs">{perK(p)} ر.س لكل ألف</span>
                 </span>
               </button>
@@ -93,7 +95,7 @@ export function TopupPicker({ onCancel }: { onCancel?: () => void }) {
           {pack && (
             <div className="surface-2 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm">
               <span>{n(pack.messages)} رسالة إضافية{until ? ` · تنتهي ${until}` : ""}</span>
-              <b>الإجمالي: {n(pack.price)} ر.س <span className="muted font-normal">(شامل الضريبة)</span></b>
+              <b>الإجمالي: {pack.price_before && <s className="muted font-normal">{n(pack.price_before)}</s>} {n(pack.price)} ر.س <span className="muted font-normal">(شامل الضريبة)</span></b>
             </div>
           )}
           {data.capped ? (

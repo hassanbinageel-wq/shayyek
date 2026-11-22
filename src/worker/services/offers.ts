@@ -111,8 +111,8 @@ export async function maybeAutoOffer(
   const r = await run(
     db,
     `INSERT OR IGNORE INTO offers (title, body, cta, link, theme, icon, starts_at, ends_at, audience, tenant_ids, active, plan_ids, discount_pct, discount_plans, discount_scope, auto_key, created_at, updated_at)
-     VALUES (?, ?, ?, '/subscription', ?, '🎁', ?, ?, 'tenants', ?, 1, NULL, ?, NULL, ?, ?, ?, ?)`,
-    title, body, "اشحن الحين", rule.theme, now, now + rule.hours * 3_600_000, JSON.stringify([c.tenantId]), rule.pct, rule.scope, `low_messages:${c.tenantId}:${c.cycleKey}`, now, now,
+     VALUES (?, ?, ?, ?, ?, '🎁', ?, ?, 'tenants', ?, 1, NULL, ?, NULL, ?, ?, ?, ?)`,
+    title, body, "اشحن الحين", rule.scope === "topups" ? "/subscription?topup=1" : "/subscription", rule.theme, now, now + rule.hours * 3_600_000, JSON.stringify([c.tenantId]), rule.pct, rule.scope, `low_messages:${c.tenantId}:${c.cycleKey}`, now, now,
   );
   if (!r.meta.changes) return null; // already made this cycle
   return { id: Number(r.meta.last_row_id), title, body };
