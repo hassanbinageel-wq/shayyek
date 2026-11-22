@@ -59,6 +59,7 @@ import {
 import { claimsDelivery, claimsFollowRequired, publicReplyVariants } from "../shared/template";
 import { cacheMediaStmt } from "./services/media";
 import { INBOX_LABELS, markRead, recordMessage, refreshAvatars, type InboxLabel } from "./services/inbox";
+import { handleInboundEmail, sendSupportReply, verifySvix } from "./services/inbound-email";
 import { deviceCount, fcmConfigured, pushToTenant, removeSubscription, saveSubscription, vapidPublicKey } from "./services/push";
 import { buildDailyReport, deleteOwnerMessage, detectChat, getNotifySettings, hasBotToken, isTelegramToken, notify, receiptUpdate, remindOwnerMessage, saveBotToken, sendOwnerMessage, sendTelegram } from "./services/notify";
 import { MESSAGING_WINDOW_MS } from "./engine/context";
@@ -454,6 +455,26 @@ export function createApp() {
     }
     c.executionCtx.waitUntil(syncProducts(c.env, r.storeId!).catch((e) => console.error("salla sync", sanitize(String(e)))));
     return c.html(oauthResultPage(true, `تم ربط متجر «${r.name ?? "سلة"}» بنجاح. المنتجات تنجلب الحين، والطلبات الجديدة توصل تلقائيًا.`, st.client, c.env.APP_DEEP_LINK));
+  });
+  // Email to support@ (received by Resend): becomes a support ticket. Signed by Resend (Svix); replays are ignored.
+  app.post("/webhooks/resend", async (c) => {
+    if (!c.env.RESEND_WEBHOOK_SECRET) return c.json({ ok: false }, 503);
+    const raw = await c.req.text();
+    if (raw.length > 1_000_000) return c.json({ ok: false }, 413);
+    if (!(await verifySvix(c.env.RESEND_WEBHOOK_SECRET, c.req.header("svix-id") ?? null, c.req.header("svix-timestamp") ?? null, c.req.header("svix-signature") ?? null, raw))) return c.json({ ok: false }, 401);
+    let body: any;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return c.json({ ok: false }, 400);
+    }
+    try {
+      const id = await handleInboundEmail(c.env, body);
+      return c.json({ ok: true, ticket: id });
+    } catch (e) {
+      console.error("inbound email", sanitize(String(e)));
+      return c.json({ ok: false }, 500); // Resend retries
+    }
   });
   app.post("/webhooks/salla", async (c) => {
     const raw = new Uint8Array(await c.req.arrayBuffer());
@@ -1477,12 +1498,14 @@ export function createApp() {
   const WHO = `(SELECT GROUP_CONCAT(u.username, '، ') FROM admin_users u WHERE u.tenant_id = t.tenant_id AND u.role = 'owner') AS tenant_usernames,
                 (SELECT a.username FROM instagram_accounts a WHERE a.tenant_id = t.tenant_id ORDER BY a.id DESC LIMIT 1) AS ig_username,
                 (SELECT st.name FROM stores st WHERE st.tenant_id = t.tenant_id AND st.status != 'disconnected' ORDER BY st.id DESC LIMIT 1) AS store_name`;
+  // Email tickets from someone without an account show the sender (name and address) instead of a customer.
+  const TICKET_NAME = `CASE WHEN t.channel = 'email' AND t.tenant_id = ${OWNER_TENANT} THEN '📧 ' || COALESCE(t.email_name || ' <' || t.email_from || '>', t.email_from) WHEN t.channel = 'email' THEN '📧 ' || n.name ELSE n.name END`;
   const MSG_COLS = "id, sender, body, created_at, att_mime, att_size, (att_key IS NOT NULL AND att_deleted_at IS NULL) AS has_att, (att_deleted_at IS NOT NULL) AS att_removed";
   owner.get("/support", async (c) =>
     c.json(
       await all(
         c.env.DB,
-        `SELECT t.id, t.tenant_id, n.name AS tenant_name, t.subject, t.category, t.state, t.priority, t.status, t.last_from, t.created_at, t.updated_at, ${WHO},
+        `SELECT t.id, t.tenant_id, ${TICKET_NAME} AS tenant_name, t.channel, t.email_from, t.subject, t.category, t.state, t.priority, t.status, t.last_from, t.created_at, t.updated_at, ${WHO},
                 (t.last_from = 'customer' AND COALESCE(t.owner_read_at, 0) < t.updated_at) AS unread,
                 (SELECT body FROM support_messages m WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1) AS last_body
            FROM support_threads t JOIN tenants n ON n.id = t.tenant_id
@@ -1657,7 +1680,7 @@ export function createApp() {
     const id = idParam(c);
     const t = await first(
       c.env.DB,
-      `SELECT t.id, t.tenant_id, n.name AS tenant_name, t.subject, t.category, t.state, t.priority, t.status, t.created_at, ${WHO}
+      `SELECT t.id, t.tenant_id, ${TICKET_NAME} AS tenant_name, t.channel, t.email_from, t.subject, t.category, t.state, t.priority, t.status, t.created_at, ${WHO}
          FROM support_threads t JOIN tenants n ON n.id = t.tenant_id WHERE t.id = ?`,
       id,
     );
@@ -1669,14 +1692,19 @@ export function createApp() {
     const id = idParam(c);
     const p = await parseBody(c, z.object({ body: z.string().trim().min(1).max(4000), state: z.enum(["in_progress", "waiting", "resolved"]).optional(), close: z.boolean().optional() }));
     if (!p.ok) return p.res;
-    const t = await first<{ id: number; tenant_id: number; subject: string }>(c.env.DB, "SELECT id, tenant_id, subject FROM support_threads WHERE id = ?", id);
+    const t = await first<{ id: number; tenant_id: number; subject: string; channel: string; email_from: string | null; email_last_message_id: string | null }>(c.env.DB, "SELECT id, tenant_id, subject, channel, email_from, email_last_message_id FROM support_threads WHERE id = ?", id);
     if (!t) return apiError(c, 404, "not_found", "الطلب غير موجود");
+    // An email ticket: the reply goes back by email first (nothing is saved if it could not be sent).
+    if (t.channel === "email" && t.email_from) {
+      const sent = await sendSupportReply(c.env, { id: t.id, subject: t.subject, email_from: t.email_from, email_last_message_id: t.email_last_message_id }, p.data.body);
+      if (!sent.ok) return apiError(c, 503, "email_failed", "ما قدرنا نرسل الرد بالإيميل الحين — حاول بعد شوي");
+    }
     const now = Date.now();
     const state = p.data.state ?? (p.data.close ? "resolved" : "waiting");
     const m = await first<{ id: number }>(c.env.DB, "INSERT INTO support_messages (thread_id, sender, body, created_at) VALUES (?, 'owner', ?, ?) RETURNING id", id, p.data.body, now);
     await run(c.env.DB, "UPDATE support_threads SET last_from = 'owner', owner_read_at = ? WHERE id = ?", now, id);
     await setState(c.env.DB, t.id, state, now);
-    await notify(c.env, t.tenant_id, "support_reply", `🎧 رد الدعم على طلبك رقم ${ticketNo(t.id)} (${STATES[state]}): ${t.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/support?thread=${t.id}` });
+    if (!(t.channel === "email" && t.tenant_id === OWNER_TENANT)) await notify(c.env, t.tenant_id, "support_reply", `🎧 رد الدعم على طلبك رقم ${ticketNo(t.id)} (${STATES[state]}): ${t.subject}\n${p.data.body.slice(0, 300)}`, undefined, { link: `/support?thread=${t.id}` });
     return c.json({ ok: true, message_id: m!.id });
   });
   // State and priority set by the owner; a new state is told to the customer.

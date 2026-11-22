@@ -106,6 +106,7 @@ jobs:
           S_SALLA_CLIENT_SECRET: ${{ secrets.SALLA_CLIENT_SECRET }}
           S_SALLA_WEBHOOK_SECRET: ${{ secrets.SALLA_WEBHOOK_SECRET }}
           S_FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+          S_RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           # Optional: Resend API key for password-recovery emails.
           S_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           S_MOYASAR_SECRET_KEY: ${{ secrets.MOYASAR_SECRET_KEY }}
@@ -116,7 +117,7 @@ jobs:
             const crypto=require("crypto"), fs=require("fs");
             const existing=new Set(process.argv[1].split(" ").filter(Boolean));
             const out={};
-            for (const k of ["INSTAGRAM_APP_SECRET","META_WEBHOOK_VERIFY_TOKEN","SETUP_TOKEN","CF_ANALYTICS_TOKEN","SALLA_CLIENT_ID","SALLA_CLIENT_SECRET","SALLA_WEBHOOK_SECRET","FCM_SERVICE_ACCOUNT_JSON","RESEND_API_KEY","MOYASAR_SECRET_KEY"]) { const v=process.env["S_"+k]; if (v) out[k]=v; }
+            for (const k of ["INSTAGRAM_APP_SECRET","META_WEBHOOK_VERIFY_TOKEN","SETUP_TOKEN","CF_ANALYTICS_TOKEN","SALLA_CLIENT_ID","SALLA_CLIENT_SECRET","SALLA_WEBHOOK_SECRET","FCM_SERVICE_ACCOUNT_JSON","RESEND_WEBHOOK_SECRET","RESEND_API_KEY","MOYASAR_SECRET_KEY"]) { const v=process.env["S_"+k]; if (v) out[k]=v; }
             if (process.env.S_CF_ANALYTICS_TOKEN) out.CF_ACCOUNT_ID=process.env.CLOUDFLARE_ACCOUNT_ID;
             // Generated once, only if the Worker does not have them yet. Changing them later would break stored data.
             if (!existing.has("TOKEN_ENC_KEY")) out.TOKEN_ENC_KEY=crypto.randomBytes(32).toString("base64");

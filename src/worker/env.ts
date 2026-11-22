@@ -33,6 +33,10 @@ export interface Env {
   FCM_SERVICE_ACCOUNT_JSON?: string;
   // Optional: Resend (resend.com) for password-recovery emails; sender address on the verified domain.
   RESEND_API_KEY?: string;
+  /** Resend webhook signing secret (whsec_…) for received email (support@ → tickets). */
+  RESEND_WEBHOOK_SECRET?: string;
+  /** Sender of replies on email tickets (default «دعم شيّك <support@shayyek.sa>»). */
+  SUPPORT_EMAIL_FROM?: string;
   EMAIL_FROM?: string;
   /** Optional: Moyasar (moyasar.com) secret key for card payments in SAR; sk_test_… for the sandbox. */
   MOYASAR_SECRET_KEY?: string;
