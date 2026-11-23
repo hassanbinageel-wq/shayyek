@@ -332,6 +332,8 @@ function OfferBox({ offers, hidden }: { offers: Offer[]; hidden: boolean }) {
   if (hidden || !live.length) return null;
   const open = (o: Offer) => {
     api(`/api/offers/${o.id}/click`, { method: "POST" }).catch(() => undefined);
+    // They are on their way to the offer: the box steps aside (the small «🎁 عرض» tab brings it back).
+    close(o.id);
     if (/^https:\/\//.test(o.link)) openExternal(o.link);
     else goTo(o.link);
   };

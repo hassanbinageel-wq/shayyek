@@ -299,7 +299,7 @@ export async function runPlanAlerts(env: Env, now = Date.now()): Promise<number>
     // Only customers who match the owner's thresholds cost any extra reads.
     if (autoRule.enabled && left !== null && daysLeft !== null && left <= autoRule.max_left && daysLeft >= autoRule.min_days) {
       const name = (await first<{ name: string }>(env.DB, "SELECT name FROM tenants WHERE id = ?", t.id))?.name ?? "";
-      const made = await maybeAutoOffer(env.DB, autoRule, { tenantId: t.id, name, left, daysLeft, cycleKey: cy.key }, now);
+      const made = await maybeAutoOffer(env.DB, autoRule, { tenantId: t.id, name, left, daysLeft, cycleKey: cy.key, planId: ent.plan?.id ?? null }, now);
       if (made) {
         await notify(env, t.id, "plan", `${made.title}\n${made.body}`, undefined, { link: "/subscription?topup=1" });
         await notify(env, OWNER_TENANT, "plan", `🤖 عرض تلقائي: «${name || t.id}» باقي له ${left.toLocaleString("en-US")} رسالة و${daysLeft} يوم — انرسل له خصم ${autoRule.pct}%.`, undefined, { link: "/owner?tab=offers" });

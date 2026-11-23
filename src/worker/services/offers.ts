@@ -129,10 +129,24 @@ export async function autoOfferRule(db: D1Database): Promise<AutoOffer> {
 export async function maybeAutoOffer(
   db: D1Database,
   rule: AutoOffer,
-  c: { tenantId: number; name: string; left: number; daysLeft: number | null; cycleKey: string },
+  c: { tenantId: number; name: string; left: number; daysLeft: number | null; cycleKey: string; planId?: string | null },
   now = Date.now(),
 ): Promise<{ id: number; title: string; body: string } | null> {
   if (!rule.enabled || c.daysLeft === null || c.left > rule.max_left || c.daysLeft < rule.min_days) return null;
+  // The plan part of the discount is for an upgrade only: the plans above the customer's own (not a renewal of it, not
+  // a lower one). On the top plan there is nothing above, so only the top-ups get the discount.
+  let scope: string = rule.scope;
+  let discountPlans: string | null = null;
+  if (scope === "both") {
+    const higher = await all<{ id: string }>(
+      db,
+      `SELECT p.id FROM plans p WHERE p.active = 1 AND COALESCE(p.free, 0) = 0
+         AND p.sort > COALESCE((SELECT sort FROM plans WHERE id = ?), -1) ORDER BY p.sort`,
+      c.planId ?? "",
+    );
+    if (higher.length) discountPlans = JSON.stringify(higher.map((p) => p.id));
+    else scope = "topups";
+  }
   const fill = (s: string) =>
     s.replaceAll("{الخصم}", String(rule.pct)).replaceAll("{المتبقي}", c.left.toLocaleString("en-US")).replaceAll("{الأيام}", String(c.daysLeft)).replaceAll("{الاسم}", c.name);
   const title = fill(rule.title).slice(0, 60);
@@ -140,8 +154,8 @@ export async function maybeAutoOffer(
   const r = await run(
     db,
     `INSERT OR IGNORE INTO offers (title, body, cta, link, theme, icon, starts_at, ends_at, audience, tenant_ids, active, plan_ids, discount_pct, discount_plans, discount_scope, auto_key, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, '🎁', ?, ?, 'tenants', ?, 1, NULL, ?, NULL, ?, ?, ?, ?)`,
-    title, body, "اشحن الحين", rule.scope === "topups" ? "/subscription?topup=1" : "/subscription", rule.theme, now, now + rule.hours * 3_600_000, JSON.stringify([c.tenantId]), rule.pct, rule.scope, `low_messages:${c.tenantId}:${c.cycleKey}`, now, now,
+     VALUES (?, ?, ?, ?, ?, '🎁', ?, ?, 'tenants', ?, 1, NULL, ?, ?, ?, ?, ?, ?)`,
+    title, body, "اشحن الحين", scope === "topups" ? "/subscription?topup=1" : "/subscription", rule.theme, now, now + rule.hours * 3_600_000, JSON.stringify([c.tenantId]), rule.pct, discountPlans, scope, `low_messages:${c.tenantId}:${c.cycleKey}`, now, now,
   );
   if (!r.meta.changes) return null; // already made this cycle
   return { id: Number(r.meta.last_row_id), title, body };

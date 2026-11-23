@@ -400,10 +400,25 @@ describe("offers", () => {
     expect(log).toMatchObject({ sent: 1, bought: 0 });
     expect(log.list[0]).toMatchObject({ tenant_id: a.tid, name: "متجر shop_a", discount_pct: 20, paid: 0 });
     expect((await call("/api/owner/auto-offer/log", a.h)).status).toBe(403);
+    // "both": the plan part is only for the plans above the customer's own (an upgrade), never a renewal of it
+    await DB.prepare("UPDATE plans SET card_price_halalas = 9900, price_period = 'month' WHERE id IN ('pro', 'max')").run();
+    await DB.prepare("UPDATE plans SET card_price_halalas = 4900, price_period = 'month' WHERE id = 'basic'").run();
+    await call("/api/owner/auto-offer", OWNER, "PUT", { ...rule, enabled: true, max_left: 50, min_days: 10, pct: 20, scope: "both", hours: 48 });
+    const c = await register("shop_c");
+    await setUsage(c.tid, 990);
+    await runPlanAlerts(TEST_ENV, at + 600_000);
+    const both = await DB.prepare("SELECT discount_scope, discount_plans FROM offers WHERE tenant_ids = ?").bind(JSON.stringify([c.tid])).first<any>();
+    expect(both.discount_scope).toBe("both");
+    expect(JSON.parse(both.discount_plans)).not.toContain("basic");
+    expect(JSON.parse(both.discount_plans)).toContain("pro");
+    const plansFor = (await call("/api/subscription", c.h)).body.plans;
+    expect(plansFor.find((p: any) => p.id === "basic").offer_pct).toBeUndefined(); // own plan: no discount
+    expect(plansFor.find((p: any) => p.id === "pro").offer_pct).toBe(20);
+
     // too few days left: no offer
     await DB.prepare("UPDATE tenants SET plan_expires_at = ? WHERE id = ?").bind(at + 5 * 86_400_000, b.tid).run();
     await setUsage(b.tid, 990);
     await runPlanAlerts(TEST_ENV, at + 1_200_000);
-    expect((await DB.prepare("SELECT COUNT(*) AS n FROM offers").first<any>()).n).toBe(1);
+    expect((await DB.prepare("SELECT COUNT(*) AS n FROM offers").first<any>()).n).toBe(2);
   });
 });

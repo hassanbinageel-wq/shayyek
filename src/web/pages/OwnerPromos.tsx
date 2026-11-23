@@ -266,8 +266,8 @@ function AutoOfferCard() {
         </div>
         <Field label="الخصم على">
           <div className="flex flex-wrap gap-1.5">
-            {SCOPES.filter(([v]) => v !== "plans").map(([v, l]) => (
-              <button key={v} type="button" className={`chip ${f.scope === v ? "bg-violet-500/15 text-violet-700 dark:text-violet-300" : "surface-2"}`} onClick={() => set({ scope: v as AutoOffer["scope"] })}>{f.scope === v ? "✓ " : ""}{l}</button>
+            {([["topups", "شحن الرسائل"], ["both", "الشحن + الترقية لباقة أعلى من باقته"]] as const).map(([v, l]) => (
+              <button key={v} type="button" className={`chip ${f.scope === v ? "bg-violet-500/15 text-violet-700 dark:text-violet-300" : "surface-2"}`} onClick={() => set({ scope: v })}>{f.scope === v ? "✓ " : ""}{l}</button>
             ))}
           </div>
         </Field>
