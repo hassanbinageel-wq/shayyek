@@ -406,7 +406,7 @@ describe("offers", () => {
     await call("/api/owner/auto-offer", OWNER, "PUT", { ...rule, enabled: true, max_left: 50, min_days: 10, pct: 20, scope: "both", hours: 48 });
     const c = await register("shop_c");
     await setUsage(c.tid, 990);
-    await runPlanAlerts(TEST_ENV, at + 600_000);
+    await runPlanAlerts(TEST_ENV, at - 600_000); // a cron minute in the past, so the new offer is already running
     const both = await DB.prepare("SELECT discount_scope, discount_plans FROM offers WHERE tenant_ids = ?").bind(JSON.stringify([c.tid])).first<any>();
     expect(both.discount_scope).toBe("both");
     expect(JSON.parse(both.discount_plans)).not.toContain("basic");
