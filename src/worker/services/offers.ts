@@ -89,6 +89,35 @@ export const DEFAULT_AUTO_OFFER: AutoOffer = {
   theme: "violet",
 };
 
+/** Every automatic offer the system sent: to whom, when, whether they saw / opened it, and what they paid with it. */
+export async function autoOfferLog(db: D1Database, limit = 100) {
+  const rows = await all<{
+    id: number; tenant_id: number; name: string | null; discount_pct: number | null; discount_scope: string | null; created_at: number; ends_at: number;
+    viewed_at: number | null; clicked_at: number | null; paid: number | null; paid_amount: number | null; paid_what: string | null;
+  }>(
+    db,
+    `SELECT o.id, CAST(json_extract(o.tenant_ids, '$[0]') AS INTEGER) AS tenant_id, t.name, o.discount_pct, o.discount_scope, o.created_at, o.ends_at,
+       (SELECT MIN(e.created_at) FROM offer_events e WHERE e.offer_id = o.id AND e.kind = 'view') AS viewed_at,
+       (SELECT MIN(e.created_at) FROM offer_events e WHERE e.offer_id = o.id AND e.kind <> 'view') AS clicked_at,
+       (SELECT COUNT(*) FROM card_payments k WHERE k.offer_id = o.id AND k.status = 'paid') AS paid,
+       (SELECT COALESCE(SUM(k.amount), 0) FROM card_payments k WHERE k.offer_id = o.id AND k.status = 'paid') AS paid_amount,
+       (SELECT group_concat(CASE WHEN k.topup_messages IS NOT NULL THEN k.topup_messages || ' رسالة' WHEN k.upgrade_id IS NOT NULL THEN 'ترقية' ELSE 'باقة' END, '، ')
+          FROM card_payments k WHERE k.offer_id = o.id AND k.status = 'paid') AS paid_what
+     FROM offers o LEFT JOIN tenants t ON t.id = CAST(json_extract(o.tenant_ids, '$[0]') AS INTEGER)
+     WHERE o.auto_key IS NOT NULL ORDER BY o.id DESC LIMIT ?`,
+    limit,
+  );
+  const list = rows.map((r) => ({ ...r, name: r.name ?? `#${r.tenant_id}`, paid: r.paid ?? 0, paid_amount: (r.paid_amount ?? 0) / 100 }));
+  return {
+    sent: list.length,
+    viewed: list.filter((r) => r.viewed_at).length,
+    clicked: list.filter((r) => r.clicked_at).length,
+    bought: list.filter((r) => r.paid > 0).length,
+    revenue: list.reduce((s, r) => s + r.paid_amount, 0),
+    list,
+  };
+}
+
 export async function autoOfferRule(db: D1Database): Promise<AutoOffer> {
   return { ...DEFAULT_AUTO_OFFER, ...(await getSetting<Partial<AutoOffer> | null>(db, OWNER_TENANT, "auto_low_messages_offer", null)) };
 }

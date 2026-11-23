@@ -104,7 +104,7 @@ import { CYCLE_MS, usageCycle, codeHash, deleteTenantData, drawsThisMonth, exten
 import { cardEnabled, cardPriceHalalas, createInvoice, isTestKey, payablePlan, PayError, startCardPayment, syncInvoice } from "./services/moyasar";
 import { planChangeBlock, quoteUpgrade } from "./services/upgrades";
 import { allPacks, applyTopup, startTopup, topupHistory, topupSettings, topupState } from "./services/topups";
-import { autoOfferRule, clickOffer, discounted, listOffers, markViewed, offerDiscount, offersFor, offerStats } from "./services/offers";
+import { autoOfferLog, autoOfferRule, clickOffer, discounted, listOffers, markViewed, offerDiscount, offersFor, offerStats } from "./services/offers";
 import { DEFAULT_OFFER_TEMPLATES, isOfferLink, OFFER_THEMES, topupSettingsOf, type OfferTemplate } from "../shared/promos";
 import { campaignSnapshot, drawSnapshots, listUndo, recordUndo, stopCampaignWork, undoOperation, UndoError } from "./services/undo";
 import { dataDeletionPage, deletionStatusPage, oauthResultPage, PAGE_CSP, pageLang, parseSignedRequest, privacyPage, refundPage, termsPage } from "./pages";
@@ -2069,6 +2069,7 @@ export function createApp() {
     const made = await first<{ n: number }>(c.env.DB, "SELECT COUNT(*) AS n FROM offers WHERE auto_key IS NOT NULL");
     return c.json({ rule: await autoOfferRule(c.env.DB), made: made?.n ?? 0 });
   });
+  owner.get("/auto-offer/log", async (c) => c.json(await autoOfferLog(c.env.DB)));
   owner.put("/auto-offer", async (c) => {
     const p = await parseBody(
       c,

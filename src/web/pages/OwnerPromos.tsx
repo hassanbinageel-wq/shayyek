@@ -236,6 +236,7 @@ function AutoOfferCard() {
   const { data, loading, reload } = useAsync(() => api<{ rule: AutoOffer; made: number }>("/api/owner/auto-offer"), []);
   const [f, setF] = useState<AutoOffer | null>(null);
   const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState(false);
   useEffect(() => { if (data) setF(data.rule); }, [data]);
   if (loading && !f) return <Spinner />;
   if (!f) return null;
@@ -273,9 +274,50 @@ function AutoOfferCard() {
         <Field label="العنوان"><input className="input" maxLength={60} value={f.title} onChange={(e) => set({ title: e.target.value })} /></Field>
         <Field label="النص"><textarea className="input min-h-20" maxLength={200} value={f.body} onChange={(e) => set({ body: e.target.value })} /></Field>
         <p className="muted text-xs">تقدر تستخدم: {"{الاسم}"} {"{الخصم}"} {"{المتبقي}"} {"{الأيام}"}{data && data.made ? ` · انرسل تلقائيًا ${data.made} عرض لين الحين` : ""}</p>
-        <div className="flex justify-end"><button className="btn btn-primary" disabled={busy} onClick={save}>حفظ</button></div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="btn btn-ghost" onClick={() => setLog(true)}><Icon name="chart" size={16} />مين وصله العرض ومين اشترى</button>
+          <button className="btn btn-primary" disabled={busy} onClick={save}>حفظ</button>
+        </div>
+        {log && <AutoOfferLog onClose={() => setLog(false)} />}
       </div>
     </Card>
+  );
+}
+
+function AutoOfferLog({ onClose }: { onClose: () => void }) {
+  const { data, loading, error } = useAsync(() => api<any>("/api/owner/auto-offer/log"), []);
+  const when = (t: number | null) => (t ? fmtTime(t) : "—");
+  return (
+    <Modal open title="🤖 سجل العروض التلقائية" onClose={onClose}>
+      {loading ? <Spinner /> : error ? <Alert tone="bad">{error}</Alert> : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
+            {[["وصله العرض", data.sent], ["شافه", data.viewed], ["ضغط عليه", data.clicked], ["اشترى", data.bought], ["الدخل", `${data.revenue.toLocaleString("en-US")} ر.س`]].map(([l, v]) => (
+              <div key={l as string} className="surface-2 rounded-xl p-2"><b className="font-display block text-lg">{v}</b><span className="muted text-xs">{l}</span></div>
+            ))}
+          </div>
+          {!data.list.length ? <p className="muted py-6 text-center text-sm">ما انرسل أي عرض تلقائي لين الحين.</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="muted text-xs"><tr className="text-right"><th className="p-2">العميل</th><th className="p-2">وصله</th><th className="p-2">الخصم</th><th className="p-2">شافه</th><th className="p-2">ضغط</th><th className="p-2">اشترى</th></tr></thead>
+                <tbody>
+                  {data.list.map((r: any) => (
+                    <tr key={r.id} className="border-t border-[var(--border)]">
+                      <td className="p-2 font-bold">{r.name}</td>
+                      <td className="p-2 whitespace-nowrap">{when(r.created_at)}{r.ends_at > Date.now() ? <span className="chip ms-1 bg-emerald-100 text-emerald-800">شغّال</span> : null}</td>
+                      <td className="p-2">{r.discount_pct}%{r.discount_scope === "topups" ? " شحن" : r.discount_scope === "both" ? " الكل" : " باقات"}</td>
+                      <td className="p-2 whitespace-nowrap">{when(r.viewed_at)}</td>
+                      <td className="p-2 whitespace-nowrap">{when(r.clicked_at)}</td>
+                      <td className="p-2">{r.paid ? <b className="text-emerald-700">✓ {r.paid_what} · {r.paid_amount.toLocaleString("en-US")} ر.س</b> : <span className="muted">لا</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 

@@ -396,6 +396,10 @@ describe("offers", () => {
     expect(note.body).toContain("40");
     expect((await DB.prepare("SELECT COUNT(*) AS n FROM app_notifications WHERE tenant_id = 1 AND title LIKE '%عرض تلقائي%'").first<any>()).n).toBe(1);
 
+    const log = (await call("/api/owner/auto-offer/log", OWNER)).body;
+    expect(log).toMatchObject({ sent: 1, bought: 0 });
+    expect(log.list[0]).toMatchObject({ tenant_id: a.tid, name: "متجر shop_a", discount_pct: 20, paid: 0 });
+    expect((await call("/api/owner/auto-offer/log", a.h)).status).toBe(403);
     // too few days left: no offer
     await DB.prepare("UPDATE tenants SET plan_expires_at = ? WHERE id = ?").bind(at + 5 * 86_400_000, b.tid).run();
     await setUsage(b.tid, 990);
