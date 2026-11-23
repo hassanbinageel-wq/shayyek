@@ -235,6 +235,8 @@ export function Modal({ open, onClose, title, children, center = false }: { open
         aria-modal="true"
         aria-label={title}
         className={center ? "card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl p-5" : "card max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-b-none p-5 sm:m-4 sm:rounded-2xl"}
+        // A sheet at the bottom of a phone keeps its last line above the system buttons (gesture bar / nav keys).
+        style={center ? undefined : { paddingBottom: "calc(1.25rem + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)))" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

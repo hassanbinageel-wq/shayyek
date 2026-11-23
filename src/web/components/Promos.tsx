@@ -65,7 +65,6 @@ export function TopupPicker({ onCancel }: { onCancel?: () => void }) {
         <p className="muted py-6 text-center text-sm">ما فيه حزم شحن متاحة لباقتك حاليًا — تقدر ترقّي باقتك من «اشتراكي».</p>
       ) : (
         <div className="space-y-4">
-          {data.discount && <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">🎁 عرض خاص لك: خصم {data.discount.pct}% على كل حزم الشحن</p>}
           <p className="muted text-sm">تنضاف لرصيدك فورًا وتصلح لين يتجدد العدّاد{until ? ` (${until})` : ""}، وتنصرف بعد رسائل باقتك.</p>
           <div className="grid gap-3 pt-2 sm:grid-cols-3" role="radiogroup" aria-label="الحزم">
             {data.packs.map((p: Pack) => (
