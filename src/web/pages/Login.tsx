@@ -264,7 +264,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
             </Field>
           )}
-          <Field label="كلمة المرور" hint={status?.needs_setup ? "12 حرفًا على الأقل" : register ? "كلمة مرور لحسابك في شيّك، مو كلمة مرور الإنستقرام — 12 حرفًا على الأقل" : undefined}>
+          <Field label="كلمة المرور" hint={status?.needs_setup ? "12 حرفًا على الأقل" : register ? "كلمة مرور لحسابك في شيّك، مو كلمة مرور الإنستقرام — 12 خانة على الأقل (حروف أو أرقام)" : undefined}>
             <div className="relative">
               <input className="input pl-11" dir="ltr" type={show ? "text" : "password"} autoComplete={status?.needs_setup || register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
               <button type="button" onClick={() => setShow((v) => !v)} className="muted absolute left-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg" aria-label={show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}><Icon name="eye" size={18} /></button>
