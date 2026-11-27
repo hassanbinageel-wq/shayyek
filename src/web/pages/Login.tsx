@@ -264,7 +264,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
             </Field>
           )}
-          <Field label="كلمة المرور" hint={status?.needs_setup || register ? "12 حرفًا على الأقل" : undefined}>
+          <Field label="كلمة المرور" hint={status?.needs_setup ? "12 حرفًا على الأقل" : register ? "كلمة مرور لحسابك في شيّك، مو كلمة مرور الإنستقرام — 12 حرفًا على الأقل" : undefined}>
             <div className="relative">
               <input className="input pl-11" dir="ltr" type={show ? "text" : "password"} autoComplete={status?.needs_setup || register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
               <button type="button" onClick={() => setShow((v) => !v)} className="muted absolute left-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg" aria-label={show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}><Icon name="eye" size={18} /></button>
@@ -299,10 +299,6 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
                 </p>
               </div>
             ))}
-          <div className="flex items-start gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-3 text-xs text-[var(--text-2)]">
-            <Icon name="shield" size={18} className="text-emerald-500" />
-            <span>هذا حساب إدارة التطبيق فقط — لا نطلب كلمة مرور إنستقرام أبدًا. الربط يتم عبر Meta الرسمي.</span>
-          </div>
           {download && <AppDownloadBox className="lg:hidden" tone="light" url={download.url} icon={download.icon} />}
           {register && !cardSignup && !status?.needs_setup && (
             <a href="#/plans" className="flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/[0.06] p-3.5 transition hover:bg-red-500/10">
@@ -312,8 +308,6 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
             </a>
           )}
           <p className="muted text-center text-[11px] leading-relaxed">
-            خدمة تقدّمها مؤسسة لمسة كورة للتجارة — مكة المكرمة
-            <br />
             <a className="inline-block py-1 underline" href={`${API_BASE || ""}/privacy`} target="_blank" rel="noopener">الخصوصية</a> · <a className="inline-block py-1 underline" href={`${API_BASE || ""}/terms`} target="_blank" rel="noopener">الشروط</a> · <a className="inline-block py-1 underline" href={`${API_BASE || ""}/refund`} target="_blank" rel="noopener">الاسترجاع</a>
           </p>
         </form>
@@ -352,8 +346,6 @@ function PublicPlansPage() {
         </div>
         {error ? <p className="text-center text-red-600">{error}</p> : !data ? <Spinner /> : PLAY_BUILD && !data.plans.some((p) => p.free) ? <p className="muted text-center text-sm">إنشاء حساب جديد غير متاح من التطبيق حاليًا.</p> : <Suspense fallback={<Spinner />}><PlansShowcase catalog={PLAY_BUILD ? { ...data, plans: data.plans.filter((p) => p.free) } : data} startPlanId={data.plans.find((p) => p.free)?.id ?? null} onCardPay={(id) => { location.hash = `#/register?plan=${encodeURIComponent(id)}`; }} /></Suspense>}
         <p className="muted text-center text-[11px] leading-relaxed">
-          خدمة تقدّمها مؤسسة لمسة كورة للتجارة — مكة المكرمة
-          <br />
           <a className="underline" href={`${API_BASE || ""}/privacy`} target="_blank" rel="noopener">الخصوصية</a> · <a className="underline" href={`${API_BASE || ""}/terms`} target="_blank" rel="noopener">الشروط</a> · <a className="underline" href={`${API_BASE || ""}/refund`} target="_blank" rel="noopener">الاسترجاع</a>
         </p>
       </main>
